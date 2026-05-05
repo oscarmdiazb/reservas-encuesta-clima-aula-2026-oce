@@ -24,6 +24,12 @@
 const SHEET_NAME = 'Reservas';
 const CAPACITY = 4;
 const TIMEZONE = 'America/Bogota';
+const SLOT_DURATION_HOURS = 2;
+// Minutes the team needs after a session before it can take another booking
+// (transit + setup buffer). 60 = 1h buffer, 120 = 2h buffer. Must be a multiple of 30.
+// IMPORTANT: this same value also lives at the top of index.html — keep them in sync.
+const BUFFER_MIN_AFTER = 60;
+const TEAM_BLOCK_MIN = SLOT_DURATION_HOURS * 60 + BUFFER_MIN_AFTER;
 
 // ---------- HTTP handlers ----------
 
@@ -70,8 +76,13 @@ function doPost(e) {
     }
 
     // Re-check capacity inside the lock to prevent race conditions.
+    // The check is conflict-aware: a 2-hour session occupies 4 half-hour marks,
+    // so booking at slot T must leave at least 1 cupo free at every half-hour
+    // during [T, T+2h). This prevents a school from booking 8:00 while the
+    // surveying team is still busy with someone else's 6:30–8:30 session.
     const counts = getCurrentCounts_();
-    if ((counts[slot] || 0) >= CAPACITY) {
+    const active = buildActiveMap_(counts);
+    if (maxActiveDuringSession_(active, slot) >= CAPACITY) {
       return jsonOut_({ ok: false, error: 'slot_full' });
     }
 
@@ -133,6 +144,52 @@ function jsonOut_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---------- Conflict-aware capacity ----------
+// A booking at slot S occupies 4 half-hour marks (S, S+30, S+60, S+90) because
+// each session lasts 2 hours. To start a session at slot T, no half-hour during
+// [T, T+2h) can have all 4 teams busy.
+
+function parseSlotKey_(key) {
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(key);
+  if (!m) return null;
+  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+}
+
+function formatSlotKey_(d) {
+  function pad(n) { return ('0' + n).slice(-2); }
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+       + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function buildActiveMap_(counts) {
+  // active[k] = number of bookings whose [start, start+TEAM_BLOCK_MIN) covers k.
+  // (TEAM_BLOCK_MIN = session duration + post-session buffer for transit/setup.)
+  const active = {};
+  const keys = Object.keys(counts);
+  for (let i = 0; i < keys.length; i++) {
+    const start = parseSlotKey_(keys[i]);
+    if (!start) continue;
+    for (let off = 0; off < TEAM_BLOCK_MIN; off += 30) {
+      const t = new Date(start.getTime() + off * 60000);
+      const tk = formatSlotKey_(t);
+      active[tk] = (active[tk] || 0) + counts[keys[i]];
+    }
+  }
+  return active;
+}
+
+function maxActiveDuringSession_(active, slot) {
+  const start = parseSlotKey_(slot);
+  if (!start) return Infinity;
+  let maxA = 0;
+  for (let off = 0; off < TEAM_BLOCK_MIN; off += 30) {
+    const t = new Date(start.getTime() + off * 60000);
+    const tk = formatSlotKey_(t);
+    if ((active[tk] || 0) > maxA) maxA = active[tk];
+  }
+  return maxA;
 }
 
 // ---------- One-time setup utility ----------

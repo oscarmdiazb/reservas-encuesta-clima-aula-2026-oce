@@ -486,6 +486,39 @@
 
   .form-error.show { display: block; }
 
+  .block-summary {
+    background: #eef4fa;
+    border: 1px solid #cfe0f0;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+
+  .block-summary-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .block-summary-time {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  .block-summary-day {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-top: 2px;
+    text-transform: capitalize;
+  }
+
   .config-warning {
     background: #fef3c7;
     border: 1px solid #fcd34d;
@@ -561,6 +594,11 @@
     </div>
     <form id="bookingForm" class="modal-body" novalidate>
       <div class="form-error" id="formError"></div>
+      <div class="block-summary" id="blockSummary">
+        <div class="block-summary-label">Vas a reservar el bloque completo de 2 horas</div>
+        <div class="block-summary-time" id="blockSummaryTime"></div>
+        <div class="block-summary-day" id="blockSummaryDay"></div>
+      </div>
       <div class="form-row">
         <label for="schoolSelect">Colegio</label>
         <select id="schoolSelect" required>
@@ -639,6 +677,11 @@ const SCHOOLS = [
 
 const CAPACITY = 4;
 const SLOT_DURATION_HOURS = 2;
+// Minutes the team needs after a session before it can take another booking
+// (transit + setup buffer). 60 = 1h buffer, 120 = 2h buffer. Must be a multiple of 30.
+// IMPORTANT: this same value also lives at the top of apps-script.gs — keep them in sync.
+const BUFFER_MIN_AFTER = 60;
+const TEAM_BLOCK_MIN = SLOT_DURATION_HOURS * 60 + BUFFER_MIN_AFTER;
 const FIRST_START_HOUR = 6;     // 6:00 AM
 const LAST_START_HOUR = 17;     // 5:00 PM (last start; block ends at 7:00 PM)
 const WEEKS_AHEAD = 8;
@@ -709,6 +752,35 @@ function getTimeSlots() {
     if (h < LAST_START_HOUR) slots.push({ hour: h, minute: 30 });
   }
   return slots;
+}
+
+// ----- Conflict-aware capacity (with post-session buffer) -----
+// A booking at slot S "uses" a team for TEAM_BLOCK_MIN minutes total: the 2-hour
+// session plus BUFFER_MIN_AFTER for transit/setup before the team can take
+// another booking. With a 1h buffer (default), an 8:00 booking blocks the team
+// from 8:00 to 11:00 — so other slots in that window have one fewer cupo.
+function activeAt_(date, hour, minute) {
+  // Number of bookings whose [start, start + TEAM_BLOCK_MIN) interval covers (date, h:m).
+  let total = 0;
+  for (let minutesAgo = 0; minutesAgo < TEAM_BLOCK_MIN; minutesAgo += 30) {
+    const t = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, minute);
+    t.setMinutes(t.getMinutes() - minutesAgo);
+    const k = slotKey(t, t.getHours(), t.getMinutes());
+    total += bookings[k] || 0;
+  }
+  return total;
+}
+
+function cuposLeftToStart(date, hour, minute) {
+  // Cupos to start at T = CAPACITY minus the worst (max) team occupancy at any
+  // half-hour during [T, T + TEAM_BLOCK_MIN).
+  let maxActive = 0;
+  for (let offset = 0; offset < TEAM_BLOCK_MIN; offset += 30) {
+    const t = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, minute);
+    t.setMinutes(t.getMinutes() + offset);
+    maxActive = Math.max(maxActive, activeAt_(t, t.getHours(), t.getMinutes()));
+  }
+  return Math.max(0, CAPACITY - maxActive);
 }
 
 // ----- Network -----
@@ -793,8 +865,7 @@ function renderCalendar() {
       const slotDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), s.hour, s.minute);
       const isPast = slotDate.getTime() <= now.getTime();
       const key = slotKey(d, s.hour, s.minute);
-      const taken = bookings[key] || 0;
-      const left = Math.max(0, CAPACITY - taken);
+      const left = cuposLeftToStart(d, s.hour, s.minute);
 
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -835,6 +906,9 @@ function openModal(date, hour, minute, key) {
     label: `${formatDateLong(date)} · ${formatTime(hour, minute)} – ${endTime(hour, minute)}`
   };
   document.getElementById('modalSubtitle').textContent = selectedSlot.label;
+  document.getElementById('blockSummaryTime').textContent =
+    `${formatTime(hour, minute)} – ${endTime(hour, minute)}`;
+  document.getElementById('blockSummaryDay').textContent = formatDateLong(date);
   document.getElementById('formError').classList.remove('show');
   document.getElementById('bookingForm').reset();
   document.getElementById('gradeSelect').innerHTML = '<option value="">Primero selecciona el colegio</option>';
