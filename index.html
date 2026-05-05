@@ -517,7 +517,7 @@
   </header>
 
   <div id="configWarning" class="config-warning" style="display:none">
-    ⚠️ La URL de Apps Script no está configurada. Edita la constante <code>https://script.google.com/macros/s/AKfycbwl9OlDdlrBhLIS4AC4XI0fYErceS5EyRQ0QzV3Hho-8ZX5lMlleP-CcxnWeIu24vj-Ow/exec</code> en <code>index.html</code>.
+    ⚠️ La URL de Apps Script no está configurada. Edita la constante <code>APPS_SCRIPT_URL</code> en <code>index.html</code>.
   </div>
 
   <section class="instructions">
@@ -598,7 +598,7 @@
 
 // 1) Paste your Apps Script Web App deployment URL here.
 //    Deploy → New deployment → Web app → Execute as: me, Who has access: Anyone.
-const APPS_SCRIPT_URL = "PASTE_DEPLOYMENT_URL_HERE";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwl9OlDdlrBhLIS4AC4XI0fYErceS5EyRQ0QzV3Hho-8ZX5lMlleP-CcxnWeIu24vj-Ow/exec";
 
 // 2) School list. Edit names freely. Each entry has its own grades array,
 //    so you can customize per-school (e.g., if a school doesn't have grade 11).
