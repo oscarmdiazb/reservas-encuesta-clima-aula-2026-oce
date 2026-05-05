@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OCE-SED · Reserva de encuesta de clima de aula</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --card: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --primary: #0f4c81;
+    --primary-hover: #0c3d68;
+    --available: #d1fae5;
+    --available-text: #065f46;
+    --partial: #fef3c7;
+    --partial-text: #92400e;
+    --low: #fed7aa;
+    --low-text: #9a3412;
+    --full: #f3f4f6;
+    --full-text: #9ca3af;
+    --error: #dc2626;
+    --success: #059669;
+    --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+  }
+
+  .brand {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--primary);
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 8px 0 12px;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  .lead {
+    color: var(--muted);
+    font-size: 16px;
+    max-width: 680px;
+  }
+
+  .instructions {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px;
+    margin: 24px 0;
+    box-shadow: var(--shadow);
+  }
+
+  .instructions h2 {
+    font-size: 15px;
+    font-weight: 800;
+    margin-bottom: 14px;
+    color: var(--text);
+  }
+
+  .steps {
+    list-style: none;
+    counter-reset: step;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+
+  .steps li {
+    counter-increment: step;
+    padding-left: 38px;
+    position: relative;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: -2px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 800;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .steps li strong {
+    color: var(--text);
+    display: block;
+    margin-bottom: 2px;
+    font-weight: 800;
+    font-size: 14px;
+  }
+
+  .calendar-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .week-label {
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--text);
+  }
+
+  .week-nav {
+    display: flex;
+    gap: 8px;
+  }
+
+  .nav-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 700;
+    color: var(--text);
+    transition: all 0.15s;
+    font-size: 13px;
+  }
+
+  .nav-btn:hover:not(:disabled) {
+    background: var(--bg);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .nav-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .calendar-body {
+    overflow-x: auto;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 80px repeat(5, minmax(130px, 1fr));
+    min-width: 750px;
+  }
+
+  .grid-cell {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+    min-height: 38px;
+    display: flex;
+    align-items: stretch;
+  }
+
+  .grid-cell:nth-child(6n) { border-right: none; }
+
+  .day-header {
+    padding: 12px 8px;
+    background: var(--bg);
+    text-align: center;
+    font-weight: 700;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .day-header .day-name {
+    text-transform: capitalize;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+  }
+
+  .day-header .day-num {
+    font-size: 17px;
+    color: var(--text);
+    margin-top: 2px;
+    font-weight: 800;
+  }
+
+  .day-header.today .day-num { color: var(--primary); }
+  .day-header.today { background: #eef4fa; }
+
+  .corner-cell {
+    background: var(--bg);
+  }
+
+  .time-label {
+    padding: 0 10px;
+    text-align: right;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 700;
+    background: var(--bg);
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .slot {
+    flex: 1;
+    padding: 6px 4px;
+    cursor: pointer;
+    transition: all 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 11.5px;
+    font-weight: 700;
+    background: var(--available);
+    color: var(--available-text);
+    border: 0;
+    font-family: inherit;
+    line-height: 1.1;
+  }
+
+  .slot:hover:not(:disabled) {
+    background: #a7f3d0;
+    transform: scale(0.97);
+  }
+
+  .slot.partial { background: var(--partial); color: var(--partial-text); }
+  .slot.partial:hover:not(:disabled) { background: #fde68a; }
+  .slot.low { background: var(--low); color: var(--low-text); }
+  .slot.low:hover:not(:disabled) { background: #fdba74; }
+
+  .slot.full {
+    background: var(--full);
+    color: var(--full-text);
+    cursor: not-allowed;
+  }
+
+  .slot.past {
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 4px,
+      #f3f4f6 4px,
+      #f3f4f6 8px
+    );
+    color: transparent;
+    cursor: default;
+  }
+
+  /* Status / Loading */
+  .status {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.05);
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 16px;
+  }
+
+  .modal-backdrop.open { display: flex; }
+
+  .modal {
+    background: var(--card);
+    border-radius: 12px;
+    max-width: 460px;
+    width: 100%;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-header {
+    padding: 20px 24px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .modal-title {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+
+  .modal-subtitle {
+    color: var(--primary);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .modal-body { padding: 20px 24px 4px; }
+
+  .form-row { margin-bottom: 16px; }
+
+  .form-row label {
+    display: block;
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  .form-row input,
+  .form-row select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    background: var(--card);
+    color: var(--text);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .form-row input:focus,
+  .form-row select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.12);
+  }
+
+  .form-row select:disabled {
+    background: var(--bg);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .btn {
+    padding: 10px 18px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text);
+  }
+
+  .btn-secondary:hover { background: var(--bg); }
+
+  .btn-primary {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn-primary:disabled { opacity: 0.6; cursor: wait; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(150%);
+    background: var(--text);
+    color: #fff;
+    padding: 14px 22px;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    font-weight: 700;
+    font-size: 14px;
+    transition: transform 0.3s ease;
+    z-index: 200;
+    max-width: 90vw;
+    text-align: center;
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--error); }
+  .toast.success { background: var(--success); }
+
+  .form-error {
+    color: var(--error);
+    font-size: 13px;
+    padding: 10px 12px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    display: none;
+    font-weight: 600;
+  }
+
+  .form-error.show { display: block; }
+
+  .config-warning {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin: 16px 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  @media (max-width: 640px) {
+    .container { padding: 20px 12px 40px; }
+    h1 { font-size: 22px; }
+    .lead { font-size: 14px; }
+    .calendar-header { padding: 12px 14px; }
+    .legend { padding: 10px 14px; gap: 10px; }
+    .week-label { font-size: 14px; }
+    .nav-btn { padding: 6px 10px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="brand">OCE-SED · Encuesta de clima de aula</div>
+    <h1>Reserva el horario para aplicar la encuesta</h1>
+    <p class="lead">Cada bloque dura 2 horas y se reserva por curso. Selecciona un día y hora disponibles, y completa los datos del docente que coordinará la sesión.</p>
+  </header>
+
+  <div id="configWarning" class="config-warning" style="display:none">
+    ⚠️ La URL de Apps Script no está configurada. Edita la constante <code>https://script.google.com/macros/s/AKfycbwl9OlDdlrBhLIS4AC4XI0fYErceS5EyRQ0QzV3Hho-8ZX5lMlleP-CcxnWeIu24vj-Ow/exec</code> en <code>index.html</code>.
+  </div>
+
+  <section class="instructions">
+    <h2>¿Cómo reservar?</h2>
+    <ol class="steps">
+      <li><strong>Elige el día</strong>Navega entre las próximas 8 semanas hasta encontrar el día que necesitas.</li>
+      <li><strong>Selecciona la hora</strong>Haz clic en un bloque con cupos disponibles (verde, amarillo o naranja).</li>
+      <li><strong>Confirma tus datos</strong>Indica el colegio, el curso, el contacto y un teléfono de logística.</li>
+    </ol>
+  </section>
+
+  <div class="calendar-card">
+    <div class="calendar-header">
+      <div class="week-label" id="weekLabel">Cargando…</div>
+      <div class="week-nav">
+        <button class="nav-btn" id="prevWeek" type="button">← Semana anterior</button>
+        <button class="nav-btn" id="nextWeek" type="button">Semana siguiente →</button>
+      </div>
+    </div>
+    <div class="calendar-body" id="calendarBody">
+      <div class="status">
+        <div class="spinner"></div>
+        <div style="margin-top:14px">Cargando disponibilidad…</div>
+      </div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--available)"></span>4 cupos</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--partial)"></span>2–3 cupos</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--low)"></span>1 cupo</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--full)"></span>Sin cupo</div>
+    </div>
+  </div>
+</div>
+
+<!-- Booking modal -->
+<div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Confirma tu reserva</div>
+      <div class="modal-subtitle" id="modalSubtitle"></div>
+    </div>
+    <form id="bookingForm" class="modal-body" novalidate>
+      <div class="form-error" id="formError"></div>
+      <div class="form-row">
+        <label for="schoolSelect">Colegio</label>
+        <select id="schoolSelect" required>
+          <option value="">Selecciona el colegio…</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="gradeSelect">Curso</label>
+        <select id="gradeSelect" required disabled>
+          <option value="">Primero selecciona el colegio</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="contactInput">Contacto (docente o coordinador/a)</label>
+        <input type="text" id="contactInput" placeholder="Nombre completo" autocomplete="name" required />
+      </div>
+      <div class="form-row">
+        <label for="phoneInput">Teléfono</label>
+        <input type="tel" id="phoneInput" placeholder="Solo números (ej. 3001234567)" inputmode="numeric" pattern="[0-9]+" autocomplete="tel" required />
+      </div>
+    </form>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" id="cancelBtn">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="confirmBtn">Confirmar reserva</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// =====================================================================
+// CONFIG — edit these two constants and you're done.
+// =====================================================================
+
+// 1) Paste your Apps Script Web App deployment URL here.
+//    Deploy → New deployment → Web app → Execute as: me, Who has access: Anyone.
+const APPS_SCRIPT_URL = "PASTE_DEPLOYMENT_URL_HERE";
+
+// 2) School list. Edit names freely. Each entry has its own grades array,
+//    so you can customize per-school (e.g., if a school doesn't have grade 11).
+const SCHOOLS = [
+  { name: "Colegio 1",  grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 2",  grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 3",  grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 4",  grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 5",  grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 6",  grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 7",  grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 8",  grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 9",  grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 10", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 11", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 12", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 13", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 14", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 15", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 16", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 17", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 18", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 19", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 20", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 21", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 22", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 23", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 24", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 25", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 26", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 27", grades: [6, 7, 8, 9, 10, 11] },
+  { name: "Colegio 28", grades: [6, 7, 8, 9, 10, 11] },
+];
+
+// =====================================================================
+// (You normally don't need to edit anything below this line.)
+// =====================================================================
+
+const CAPACITY = 4;
+const SLOT_DURATION_HOURS = 2;
+const FIRST_START_HOUR = 6;     // 6:00 AM
+const LAST_START_HOUR = 17;     // 5:00 PM (last start; block ends at 7:00 PM)
+const WEEKS_AHEAD = 8;
+const TIMEZONE = "America/Bogota";
+
+const DAY_NAMES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+const MONTH_NAMES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const MONTH_ABBR = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+// ----- State -----
+let bookings = {};            // { "YYYY-MM-DD HH:mm": count }
+let currentWeekStart = null;  // Monday of the displayed week, in Bogota local time
+let selectedSlot = null;
+
+// ----- Time helpers (Bogota) -----
+// Returns a Date whose Y-M-D / H:M values represent the current moment in Bogota.
+// (We use it as a "naive local" Date for comparisons against constructed slot Dates.)
+function nowInBogota() {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: TIMEZONE,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(new Date()).map(p => [p.type, p.value]));
+  return new Date(+parts.year, +parts.month - 1, +parts.day,
+                  +parts.hour % 24, +parts.minute, +parts.second);
+}
+
+function startOfWeekMonday(d) {
+  const day = d.getDay(); // 0=Sun..6=Sat
+  const diff = (day === 0 ? -6 : 1 - day);
+  const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  r.setDate(r.getDate() + diff);
+  return r;
+}
+
+function addDays(d, n) {
+  const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function slotKey(date, hour, minute) {
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(hour)}:${pad(minute)}`;
+}
+
+function formatDateLong(d) {
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()} de ${MONTH_NAMES[d.getMonth()]}`;
+}
+
+function formatTime(hour, minute) {
+  const h12 = ((hour + 11) % 12) + 1;
+  const ampm = hour < 12 ? 'a.m.' : 'p.m.';
+  return `${h12}:${pad(minute)} ${ampm}`;
+}
+
+function endTime(hour, minute) {
+  const total = hour * 60 + minute + SLOT_DURATION_HOURS * 60;
+  return formatTime(Math.floor(total / 60), total % 60);
+}
+
+function getTimeSlots() {
+  const slots = [];
+  for (let h = FIRST_START_HOUR; h <= LAST_START_HOUR; h++) {
+    slots.push({ hour: h, minute: 0 });
+    if (h < LAST_START_HOUR) slots.push({ hour: h, minute: 30 });
+  }
+  return slots;
+}
+
+// ----- Network -----
+function isConfigured() {
+  return APPS_SCRIPT_URL && APPS_SCRIPT_URL !== "PASTE_DEPLOYMENT_URL_HERE";
+}
+
+async function fetchBookings() {
+  if (!isConfigured()) return { ok: true, bookings: {} };
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'GET',
+    mode: 'cors',
+    redirect: 'follow'
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+async function postBooking(payload) {
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'cors',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+// ----- Render -----
+function renderCalendar() {
+  const body = document.getElementById('calendarBody');
+  const weekLabel = document.getElementById('weekLabel');
+  const prevBtn = document.getElementById('prevWeek');
+  const nextBtn = document.getElementById('nextWeek');
+
+  const todayMonday = startOfWeekMonday(nowInBogota());
+  const maxMonday = addDays(todayMonday, (WEEKS_AHEAD - 1) * 7);
+  prevBtn.disabled = currentWeekStart.getTime() <= todayMonday.getTime();
+  nextBtn.disabled = currentWeekStart.getTime() >= maxMonday.getTime();
+
+  const friday = addDays(currentWeekStart, 4);
+  const sameMonth = currentWeekStart.getMonth() === friday.getMonth();
+  weekLabel.textContent = sameMonth
+    ? `Semana del ${currentWeekStart.getDate()} al ${friday.getDate()} de ${MONTH_NAMES[friday.getMonth()]}`
+    : `Semana del ${currentWeekStart.getDate()} de ${MONTH_NAMES[currentWeekStart.getMonth()]} al ${friday.getDate()} de ${MONTH_NAMES[friday.getMonth()]}`;
+
+  const now = nowInBogota();
+  const days = [0, 1, 2, 3, 4].map(i => addDays(currentWeekStart, i));
+  const slots = getTimeSlots();
+
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+
+  // Header row
+  const corner = document.createElement('div');
+  corner.className = 'grid-cell corner-cell';
+  grid.appendChild(corner);
+  days.forEach(d => {
+    const isToday = d.toDateString() === now.toDateString();
+    const cell = document.createElement('div');
+    cell.className = 'grid-cell day-header' + (isToday ? ' today' : '');
+    cell.innerHTML = `
+      <div class="day-name">${DAY_NAMES[d.getDay()]}</div>
+      <div class="day-num">${d.getDate()} ${MONTH_ABBR[d.getMonth()]}</div>
+    `;
+    grid.appendChild(cell);
+  });
+
+  // Time-slot rows
+  slots.forEach(s => {
+    const timeCell = document.createElement('div');
+    timeCell.className = 'grid-cell time-label';
+    timeCell.textContent = formatTime(s.hour, s.minute);
+    grid.appendChild(timeCell);
+
+    days.forEach(d => {
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell';
+
+      const slotDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), s.hour, s.minute);
+      const isPast = slotDate.getTime() <= now.getTime();
+      const key = slotKey(d, s.hour, s.minute);
+      const taken = bookings[key] || 0;
+      const left = Math.max(0, CAPACITY - taken);
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'slot';
+
+      if (isPast) {
+        btn.classList.add('past');
+        btn.disabled = true;
+        btn.setAttribute('aria-label', 'Horario pasado');
+      } else if (left === 0) {
+        btn.classList.add('full');
+        btn.disabled = true;
+        btn.textContent = 'Sin cupo';
+      } else {
+        if (left <= 1) btn.classList.add('low');
+        else if (left <= 3) btn.classList.add('partial');
+        // else: default (available, green)
+        btn.textContent = `${left} ${left === 1 ? 'cupo' : 'cupos'}`;
+        btn.setAttribute('aria-label', `${formatTime(s.hour, s.minute)} ${formatDateLong(d)}: ${left} cupos disponibles`);
+        btn.addEventListener('click', () => openModal(d, s.hour, s.minute, key));
+      }
+      cell.appendChild(btn);
+      grid.appendChild(cell);
+    });
+  });
+
+  body.innerHTML = '';
+  body.appendChild(grid);
+}
+
+// ----- Modal -----
+function openModal(date, hour, minute, key) {
+  selectedSlot = {
+    iso: key,
+    date,
+    hour,
+    minute,
+    label: `${formatDateLong(date)} · ${formatTime(hour, minute)} – ${endTime(hour, minute)}`
+  };
+  document.getElementById('modalSubtitle').textContent = selectedSlot.label;
+  document.getElementById('formError').classList.remove('show');
+  document.getElementById('bookingForm').reset();
+  document.getElementById('gradeSelect').innerHTML = '<option value="">Primero selecciona el colegio</option>';
+  document.getElementById('gradeSelect').disabled = true;
+  document.getElementById('modalBackdrop').classList.add('open');
+  setTimeout(() => document.getElementById('schoolSelect').focus(), 50);
+}
+
+function closeModal() {
+  document.getElementById('modalBackdrop').classList.remove('open');
+  selectedSlot = null;
+}
+
+function populateSchools() {
+  const sel = document.getElementById('schoolSelect');
+  SCHOOLS.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.name;
+    opt.textContent = s.name;
+    sel.appendChild(opt);
+  });
+}
+
+function onSchoolChange() {
+  const sel = document.getElementById('schoolSelect');
+  const gradeSel = document.getElementById('gradeSelect');
+  const selected = SCHOOLS.find(s => s.name === sel.value);
+  gradeSel.innerHTML = '';
+  if (!selected) {
+    gradeSel.innerHTML = '<option value="">Primero selecciona el colegio</option>';
+    gradeSel.disabled = true;
+    return;
+  }
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Selecciona el curso…';
+  gradeSel.appendChild(placeholder);
+  selected.grades.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = String(g);
+    opt.textContent = `Grado ${g}`;
+    gradeSel.appendChild(opt);
+  });
+  gradeSel.disabled = false;
+}
+
+function showFormError(msg) {
+  const el = document.getElementById('formError');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 5500);
+}
+
+async function submitBooking() {
+  const school = document.getElementById('schoolSelect').value;
+  const grade = document.getElementById('gradeSelect').value;
+  const contact = document.getElementById('contactInput').value.trim();
+  const phone = document.getElementById('phoneInput').value.trim();
+
+  if (!school) return showFormError('Selecciona un colegio.');
+  if (!grade) return showFormError('Selecciona un curso.');
+  if (!contact) return showFormError('Ingresa el nombre del contacto.');
+  if (!phone) return showFormError('Ingresa un teléfono.');
+  if (!/^[0-9]{7,15}$/.test(phone)) return showFormError('El teléfono debe tener solo números (7 a 15 dígitos).');
+
+  if (!isConfigured()) {
+    return showFormError('La URL de Apps Script no está configurada. Edita APPS_SCRIPT_URL en index.html.');
+  }
+  if (!selectedSlot) {
+    return showFormError('No hay un horario seleccionado.');
+  }
+
+  const btn = document.getElementById('confirmBtn');
+  btn.disabled = true;
+  btn.textContent = 'Enviando…';
+  document.getElementById('formError').classList.remove('show');
+
+  try {
+    const res = await postBooking({
+      slot: selectedSlot.iso,
+      school,
+      grade,
+      contact,
+      phone
+    });
+    if (res && res.ok) {
+      const dateStr = formatDateLong(selectedSlot.date);
+      const timeStr = formatTime(selectedSlot.hour, selectedSlot.minute);
+      closeModal();
+      showToast(`Reserva confirmada para ${dateStr} a las ${timeStr}`, 'success');
+      await refresh();
+    } else if (res && res.error === 'slot_full') {
+      showFormError('Ese horario acaba de llenarse, por favor elige otro.');
+      // Refresh in background so the calendar updates
+      refresh();
+    } else {
+      const err = (res && res.error) ? res.error : 'desconocido';
+      showFormError(`No pudimos guardar la reserva (${err}). Intenta de nuevo.`);
+    }
+  } catch (err) {
+    showFormError('No se pudo conectar con el servidor: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Confirmar reserva';
+  }
+}
+
+// ----- Refresh -----
+async function refresh() {
+  const body = document.getElementById('calendarBody');
+  body.innerHTML = '<div class="status"><div class="spinner"></div><div style="margin-top:14px">Cargando disponibilidad…</div></div>';
+  try {
+    const data = await fetchBookings();
+    bookings = (data && data.bookings) || {};
+    renderCalendar();
+  } catch (err) {
+    body.innerHTML = `
+      <div class="status" style="color:var(--error)">
+        Error al cargar disponibilidad: ${err.message}<br><br>
+        <button class="nav-btn" id="retryBtn" type="button">Reintentar</button>
+      </div>`;
+    document.getElementById('retryBtn').addEventListener('click', refresh);
+  }
+}
+
+// ----- Init -----
+document.addEventListener('DOMContentLoaded', () => {
+  if (!isConfigured()) {
+    document.getElementById('configWarning').style.display = 'block';
+  }
+  populateSchools();
+  currentWeekStart = startOfWeekMonday(nowInBogota());
+  refresh();
+
+  document.getElementById('prevWeek').addEventListener('click', () => {
+    currentWeekStart = addDays(currentWeekStart, -7);
+    renderCalendar();
+  });
+  document.getElementById('nextWeek').addEventListener('click', () => {
+    currentWeekStart = addDays(currentWeekStart, 7);
+    renderCalendar();
+  });
+  document.getElementById('schoolSelect').addEventListener('change', onSchoolChange);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  document.getElementById('confirmBtn').addEventListener('click', submitBooking);
+  document.getElementById('phoneInput').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+  });
+  document.getElementById('modalBackdrop').addEventListener('click', (e) => {
+    if (e.target.id === 'modalBackdrop') closeModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+});
+</script>
+</body>
+</html>
