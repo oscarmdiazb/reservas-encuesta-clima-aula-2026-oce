@@ -12,9 +12,9 @@ Self-hosted Calendly-style reservation page for the OCE-SED classroom-climate su
 
 ## How it works
 
-1. Page loads → `GET` to Apps Script → returns `{ "YYYY-MM-DD HH:mm": count }`.
-2. Calendar renders 8 weeks (Mon–Fri) with 23 half-hourly start times from 6:00 AM to 5:00 PM, capacity 4 per slot. Only the count is shown — never which school booked.
-3. School picks a slot, fills out the form (school + grade + contact + phone), clicks confirm.
+1. Page loads → `GET` to Apps Script → returns per-slot counts AND per-slot booking details (`localidad`, `colegio`, `jornada`, `clase`).
+2. Calendar renders the window **1 ago – 15 sep 2026** (Mon–Fri) with half-hourly start times from 6:00 AM to 5:00 PM, capacity 4 per slot. Each slot shows remaining cupos and a chip per existing reservation (`Colegio · Aula`).
+3. School picks a slot, picks its localidad → its colegio (showing jornada + aula from the sample), fills contact + phone, clicks confirm.
 4. `POST` to Apps Script → server re-checks capacity inside a `LockService` lock → appends a row to the `Reservas` sheet → returns success.
 5. Page refreshes the availability map.
 
@@ -35,14 +35,16 @@ See [`SETUP.md`](./SETUP.md) — it walks through creating the Sheet, pasting th
 
 ## Editing the school list
 
-Open `index.html`, find the `SCHOOLS` array near the top of the `<script>` block, and edit the names directly. Each entry has its own grades array, so you can customize per-school:
+Open `index.html`, find the `SCHOOLS_BY_LOCALIDAD` object near the top of the `<script>` block. It was generated from `Final Treatment Assignment Round 3.csv` and groups the 80 colegios of the sample by localidad; each colegio has exactly one assigned aula:
 
 ```js
-const SCHOOLS = [
-  { name: "IED Mi Colegio", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio Tal",    grades: [9, 10, 11] }, // only secundaria alta
+const SCHOOLS_BY_LOCALIDAD = {
+  "SANTAFE": [
+    { colegio: "COLEGIO EL VERJON (IED)", sede: "EL VERJON ALTO", jornada: "ÚNICA", clase: "702", grado: "7", dane: "21100102748501" },
+    // ...
+  ],
   // ...
-];
+};
 ```
 
 After saving, `git commit && git push` — GitHub Pages republishes in about a minute.
@@ -52,22 +54,22 @@ After saving, `git commit && git push` — GitHub Pages republishes in about a m
 Open the Google Sheet. Every reservation is appended as a row:
 
 ```
-Timestamp | Slot               | Colegio    | Grado | Contacto       | Teléfono
-2026-05-06 14:32:11 | 2026-05-12 08:00 | Colegio 5  | 9     | María Pérez    | 3001234567
+Timestamp           | Slot             | Localidad | Colegio                | Jornada | Clase | Sede           | DANE           | Contacto    | Teléfono
+2026-05-06 14:32:11 | 2026-08-10 08:00 | SANTAFE   | COLEGIO EL VERJON (IED)| ÚNICA   | 702   | EL VERJON ALTO | 21100102748501 | María Pérez | 3001234567
 ```
 
 Sort by **Slot** (column B) to see the booking calendar in chronological order. To grab a snapshot for analysis: **File → Download → CSV**.
 
 ## Privacy
 
-The public page never exposes school or contact information for already-booked slots — it only shows `"X cupos"`. The Sheet itself is private to whoever you share it with.
+The public page **does** show colegio + aula on already-booked slots (so schools see who's there at the same time), but never the contact name or phone — those live only in the private Sheet.
 
 ## Limits / things this doesn't try to do
 
 - No cancellation / reschedule UI. To cancel, delete the row from the Sheet manually.
 - No email confirmation to the contact (yet — easy to add: `MailApp.sendEmail(...)` inside `doPost`).
 - No protection against someone deliberately spamming the form. Volume is low (~28 schools, one slot each) so this hasn't been an issue, but if it ever is, swap the deployment to "Anyone with a Google account" — schools log in with their personal Google to book.
-- The 8-week horizon and 4-spot capacity are hard-coded constants at the top of `index.html` and `apps-script.gs`. Change both if you change either.
+- The reservation window (`WINDOW_START` / `WINDOW_END` in `index.html`) and the 4-spot capacity (in both `index.html` and `apps-script.gs`) are hard-coded constants near the top of each file. Change both if you change either.
 
 ## License / use
 

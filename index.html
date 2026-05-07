@@ -246,9 +246,10 @@
     flex: 1;
     padding: 6px 4px;
     cursor: pointer;
-    transition: all 0.12s;
+    transition: background 0.12s;
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     justify-content: center;
     text-align: center;
     font-size: 11.5px;
@@ -257,12 +258,12 @@
     color: var(--available-text);
     border: 0;
     font-family: inherit;
-    line-height: 1.1;
+    line-height: 1.15;
+    gap: 3px;
   }
 
   .slot:hover:not(:disabled) {
     background: #a7f3d0;
-    transform: scale(0.97);
   }
 
   .slot.partial { background: var(--partial); color: var(--partial-text); }
@@ -274,6 +275,44 @@
     background: var(--full);
     color: var(--full-text);
     cursor: not-allowed;
+  }
+
+  /* Booking chips shown inside an already-reserved slot */
+  .booking-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 2px 2px 0;
+  }
+
+  .booking-chip {
+    background: rgba(255,255,255,0.55);
+    color: #1f2937;
+    font-size: 10.5px;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 2px 5px;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .slot.full .booking-chip {
+    background: rgba(255,255,255,0.9);
+    color: var(--text);
+  }
+
+  .slot-cupos {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+  }
+
+  .slot.has-bookings .slot-cupos {
+    border-top: 1px dashed rgba(0,0,0,0.12);
+    padding-top: 3px;
+    margin: 2px 4px 0;
   }
 
   .slot.past {
@@ -546,7 +585,7 @@
   <header>
     <div class="brand">OCE-SED · Encuesta de clima de aula</div>
     <h1>Reserva el horario para aplicar la encuesta</h1>
-    <p class="lead">Cada bloque dura 2 horas y se reserva por curso. Selecciona un día y hora disponibles, y completa los datos del docente que coordinará la sesión.</p>
+    <p class="lead">Cada bloque dura 2 horas y se reserva por aula. La ventana de reservas va del <strong>1 de agosto al 15 de septiembre de 2026</strong>. Selecciona tu localidad, tu colegio y el horario que prefieras.</p>
   </header>
 
   <div id="configWarning" class="config-warning" style="display:none">
@@ -556,9 +595,9 @@
   <section class="instructions">
     <h2>¿Cómo reservar?</h2>
     <ol class="steps">
-      <li><strong>Elige el día</strong>Navega entre las próximas 8 semanas hasta encontrar el día que necesitas.</li>
+      <li><strong>Elige el día</strong>Navega por las semanas dentro de la ventana (1 ago – 15 sep) hasta encontrar el día que necesitas.</li>
       <li><strong>Selecciona la hora</strong>Haz clic en un bloque con cupos disponibles (verde, amarillo o naranja).</li>
-      <li><strong>Confirma tus datos</strong>Indica el colegio, el curso, el contacto y un teléfono de logística.</li>
+      <li><strong>Confirma tus datos</strong>Elige tu localidad, tu colegio (con jornada y aula) y deja un contacto de logística.</li>
     </ol>
   </section>
 
@@ -581,6 +620,7 @@
       <div class="legend-item"><span class="legend-swatch" style="background:var(--partial)"></span>2–3 cupos</div>
       <div class="legend-item"><span class="legend-swatch" style="background:var(--low)"></span>1 cupo</div>
       <div class="legend-item"><span class="legend-swatch" style="background:var(--full)"></span>Sin cupo</div>
+      <div class="legend-item" style="margin-left:auto"><span style="background:rgba(255,255,255,0.55);border:1px solid rgba(0,0,0,0.05);border-radius:4px;padding:2px 6px;font-size:10.5px;font-weight:700;color:#1f2937">Colegio · Aula</span> reserva existente</div>
     </div>
   </div>
 </div>
@@ -600,15 +640,15 @@
         <div class="block-summary-day" id="blockSummaryDay"></div>
       </div>
       <div class="form-row">
-        <label for="schoolSelect">Colegio</label>
-        <select id="schoolSelect" required>
-          <option value="">Selecciona el colegio…</option>
+        <label for="localidadSelect">Localidad</label>
+        <select id="localidadSelect" required>
+          <option value="">Selecciona la localidad…</option>
         </select>
       </div>
       <div class="form-row">
-        <label for="gradeSelect">Curso</label>
-        <select id="gradeSelect" required disabled>
-          <option value="">Primero selecciona el colegio</option>
+        <label for="schoolSelect">Colegio · Jornada · Aula</label>
+        <select id="schoolSelect" required disabled>
+          <option value="">Primero selecciona la localidad</option>
         </select>
       </div>
       <div class="form-row">
@@ -638,38 +678,123 @@
 //    Deploy → New deployment → Web app → Execute as: me, Who has access: Anyone.
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwl9OlDdlrBhLIS4AC4XI0fYErceS5EyRQ0QzV3Hho-8ZX5lMlleP-CcxnWeIu24vj-Ow/exec";
 
-// 2) School list. Edit names freely. Each entry has its own grades array,
-//    so you can customize per-school (e.g., if a school doesn't have grade 11).
-const SCHOOLS = [
-  { name: "Colegio 1",  grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 2",  grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 3",  grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 4",  grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 5",  grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 6",  grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 7",  grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 8",  grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 9",  grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 10", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 11", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 12", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 13", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 14", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 15", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 16", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 17", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 18", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 19", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 20", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 21", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 22", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 23", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 24", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 25", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 26", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 27", grades: [6, 7, 8, 9, 10, 11] },
-  { name: "Colegio 28", grades: [6, 7, 8, 9, 10, 11] },
-];
+// 2) School list — generated from "Final Treatment Assignment Round 3.csv".
+//    Each localidad maps to an array of { colegio, sede, jornada, clase, grado, dane }.
+//    Each colegio has exactly one (jornada, clase) pair from the sample.
+const SCHOOLS_BY_LOCALIDAD = {
+  "ANTONIO NARIÑO": [
+    { colegio: "COLEGIO ESCUELA NORMAL SUPERIOR DISTRITAL MARIA MONTESSORI (IED)", sede: "ANEXA A LA NORMAL SUPERIOR DISTRITAL MARIA MONTESSORI", jornada: "ÚNICA", clase: "804", grado: "8", dane: "11100101190802" },
+    { colegio: "COLEGIO FRANCISCO DE PAULA SANTANDER (IED)", sede: "FRANCISCO DE PAULA SANTANDER", jornada: "ÚNICA", clase: "802", grado: "8", dane: "11100101463001" }
+  ],
+  "BARRIOS UNIDOS": [
+    { colegio: "COLEGIO FRANCISCO PRIMERO S.S. (IED)", sede: "SEDE B", jornada: "ÚNICA", clase: "902", grado: "9", dane: "11100102483002" }
+  ],
+  "BOSA": [
+    { colegio: "COLEGIO BOSANOVA (IED)", sede: "BOSANOVA", jornada: "TARDE", clase: "702", grado: "7", dane: "21110200099501" },
+    { colegio: "COLEGIO FERNANDO MAZUERA VILLEGAS (IED)", sede: "FERNANDO MAZUERA VILLEGAS", jornada: "TARDE", clase: "9908", grado: "99", dane: "11110200075301" },
+    { colegio: "COLEGIO PABLO DE TARSO (IED)", sede: "PABLO DE TARSO", jornada: "TARDE", clase: "9903", grado: "99", dane: "11110200028101" },
+    { colegio: "COLEGIO SOLEDAD ACOSTA DE SAMPER (IED)", sede: "COLEGIO SOLEDAD ACOSTA DE SAMPER (IED) - SEDE PRINCIPAL", jornada: "ÚNICA", clase: "701", grado: "7", dane: "11100180039201" }
+  ],
+  "CIUDAD BOLIVAR": [
+    { colegio: "COLEGIO CIUDAD DE MONTREAL (IED)", sede: "CIUDAD DE MONTREAL", jornada: "ÚNICA", clase: "901", grado: "9", dane: "11100102826601" },
+    { colegio: "COLEGIO COMPARTIR RECUERDO (IED)", sede: "COMPARTIR LUCERO ALTO", jornada: "MAÑANA", clase: "701", grado: "7", dane: "11100103475401" },
+    { colegio: "COLEGIO EL ENSUEÑO (IED)", sede: "COLEGIO EL ENSUEÑO (IED) - SEDE PRINCIPAL", jornada: "ÚNICA", clase: "701", grado: "7", dane: "11100180041401" },
+    { colegio: "COLEGIO EL MINUTO DE BUENOS AIRES (IED)", sede: "MINUTO DE MARIA", jornada: "ÚNICA", clase: "702", grado: "7", dane: "11100108676202" },
+    { colegio: "COLEGIO LA ESTANCIA - SAN ISIDRO LABRADOR (IED)", sede: "LA ESTANCIA", jornada: "MAÑANA", clase: "903", grado: "9", dane: "11100109241001" },
+    { colegio: "COLEGIO LA JOYA (IED)", sede: "LA JOYA", jornada: "ÚNICA", clase: "801", grado: "8", dane: "11100109897301" },
+    { colegio: "COLEGIO RODRIGO LARA BONILLA (IED)", sede: "RODRIGO LARA BONILLA", jornada: "TARDE", clase: "705", grado: "7", dane: "11100103678101" },
+    { colegio: "COLEGIO SIERRA MORENA (IED)", sede: "SIERRA MORENA", jornada: "MAÑANA", clase: "802", grado: "8", dane: "11100108683501" }
+  ],
+  "ENGATIVA": [
+    { colegio: "COLEGIO INSTITUTO TECNICO DISTRITAL REPUBLICA DE GUATEMALA (IED)", sede: "REPUBLICA DE GUATEMALA", jornada: "MAÑANA", clase: "701", grado: "7", dane: "11100103662501" },
+    { colegio: "COLEGIO INSTITUTO TECNICO JUAN DEL CORRAL (IED)", sede: "JUAN DEL CORRAL", jornada: "ÚNICA", clase: "701", grado: "7", dane: "11100100958001" },
+    { colegio: "COLEGIO JORGE GAITAN CORTES (IED)", sede: "ANDALUCIA", jornada: "MAÑANA", clase: "901", grado: "9", dane: "11100101580603" },
+    { colegio: "COLEGIO MANUELA AYALA DE GAITAN (IED)", sede: "MANUELA AYALA DE GAITAN", jornada: "ÚNICA", clase: "703", grado: "7", dane: "11100104629901" },
+    { colegio: "COLEGIO MIGUEL ANTONIO CARO (IED)", sede: "MIGUEL ANTONIO CARO", jornada: "MAÑANA", clase: "702", grado: "7", dane: "11100101107001" },
+    { colegio: "COLEGIO NACIONES UNIDAS (IED)", sede: "JAIRO ANIBAL NIÑO", jornada: "ÚNICA", clase: "701", grado: "7", dane: "11100101329302" },
+    { colegio: "COLEGIO NIDIA QUINTERO DE TURBAY (IED)", sede: "NIDYA QUINTERO DE TURBAY", jornada: "ÚNICA", clase: "701", grado: "7", dane: "11126500040801" },
+    { colegio: "COLEGIO REPUBLICA DE COLOMBIA (IED)", sede: "REPUBLICA DE COLOMBIA", jornada: "ÚNICA", clase: "805", grado: "8", dane: "11100100997101" },
+    { colegio: "COLEGIO ROBERT F. KENNEDY (IED)", sede: "ROBERT F. KENNEDY", jornada: "MAÑANA", clase: "701", grado: "7", dane: "11100100952101" },
+    { colegio: "COLEGIO SAN JOSE NORTE (IED)", sede: "SAN JOSE NORTE", jornada: "ÚNICA", clase: "801", grado: "8", dane: "11100101245901" },
+    { colegio: "COLEGIO TABORA (IED)", sede: "TABORA", jornada: "ÚNICA", clase: "701", grado: "7", dane: "11100101248301" }
+  ],
+  "FONTIBON": [
+    { colegio: "COLEGIO ANTONIO VAN UDEN (IED)", sede: "ANTONIO VAN UDEN", jornada: "TARDE", clase: "701", grado: "7", dane: "11127900006101" },
+    { colegio: "COLEGIO COSTA RICA (IED)", sede: "REPUBLICA DE COSTA RICA", jornada: "MAÑANA", clase: "902", grado: "9", dane: "11127900036201" },
+    { colegio: "COLEGIO LA FELICIDAD (IED)", sede: "LA FELICIDAD", jornada: "ÚNICA", clase: "702", grado: "7", dane: "11100180009101" },
+    { colegio: "COLEGIO RODRIGO ARENAS BETANCOURT (IED)", sede: "RODRIGO ARENAS BETANCOURT", jornada: "MAÑANA", clase: "701", grado: "7", dane: "11100101434601" }
+  ],
+  "KENNEDY": [
+    { colegio: "COLEGIO ALFONSO LOPEZ PUMAREJO (IED)", sede: "ALFONSO LOPEZ PUMAREJO", jornada: "MAÑANA", clase: "901", grado: "9", dane: "11100108664901" },
+    { colegio: "COLEGIO ALQUERIA DE LA FRAGUA (IED)", sede: "ALQUERIA DE LA FRAGUA", jornada: "TARDE", clase: "702", grado: "7", dane: "11100101609801" },
+    { colegio: "COLEGIO CODEMA (IED)", sede: "CODEMA", jornada: "TARDE", clase: "704", grado: "7", dane: "11100110455801" },
+    { colegio: "COLEGIO GABRIEL BETANCOURT MEJIA (IED)", sede: "SEDE A - GABRIEL BETANCOURT MEJIA", jornada: "TARDE", clase: "801", grado: "8", dane: "11100110428101" },
+    { colegio: "COLEGIO ISABEL II (IED)", sede: "ISABEL II", jornada: "MAÑANA", clase: "802", grado: "8", dane: "11100101607101" },
+    { colegio: "COLEGIO LA CHUCUA (IED)", sede: "LA CHUCUA", jornada: "TARDE", clase: "702", grado: "7", dane: "11100101613601" },
+    { colegio: "COLEGIO NELSON MANDELA (IED)", sede: "NELSON MANDELA", jornada: "MAÑANA", clase: "701", grado: "7", dane: "11100111047701" },
+    { colegio: "COLEGIO PAULO VI (IED)", sede: "PAULO VI", jornada: "TARDE", clase: "902", grado: "9", dane: "11100101315301" },
+    { colegio: "COLEGIO PROSPERO PINZON (IED)", sede: "PROSPERO PINZON", jornada: "ÚNICA", clase: "803", grado: "8", dane: "11100102730801" },
+    { colegio: "COLEGIO SAN RAFAEL (IED)", sede: "SAN RAFAEL", jornada: "MAÑANA", clase: "902", grado: "9", dane: "11100101317001" }
+  ],
+  "LA CANDELARIA": [
+    { colegio: "COLEGIO ESCUELA NACIONAL DE COMERCIO (IED)", sede: "ESCUELA NACIONAL DE COMERCIO", jornada: "ÚNICA", clase: "802", grado: "8", dane: "11100101337401" }
+  ],
+  "LOS MARTIRES": [
+    { colegio: "COLEGIO EDUARDO SANTOS (IED)", sede: "EDUARDO SANTOS", jornada: "ÚNICA", clase: "801", grado: "8", dane: "11100101400101" },
+    { colegio: "COLEGIO SAN FRANCISCO DE ASIS (IED)", sede: "POLITECNICO NACIONAL FEMENINO", jornada: "ÚNICA", clase: "701", grado: "7", dane: "11100101677201" },
+    { colegio: "COLEGIO TECNICO MENORAH (IED)", sede: "MENORAH", jornada: "ÚNICA", clase: "901", grado: "9", dane: "11100102606901" }
+  ],
+  "PUENTE ARANDA": [
+    { colegio: "COLEGIO LA MERCED (IED)", sede: "LA MERCED", jornada: "ÚNICA", clase: "802", grado: "8", dane: "11100100612201" },
+    { colegio: "COLEGIO LUIS VARGAS TEJADA (IED)", sede: "LUIS VARGAS TEJADA", jornada: "ÚNICA", clase: "902", grado: "9", dane: "11100101486901" },
+    { colegio: "COLEGIO MARCO ANTONIO CARREÑO SILVA (IED)", sede: "EL REMANSO", jornada: "ÚNICA", clase: "903", grado: "9", dane: "11100101482601" }
+  ],
+  "RAFAEL URIBE URIBE": [
+    { colegio: "COLEGIO ALFREDO IRIARTE (IED)", sede: "CHIRCALES", jornada: "ÚNICA", clase: "903", grado: "9", dane: "11100102738301" },
+    { colegio: "COLEGIO EL LIBERTADOR (IED)", sede: "EL LIBERTADOR", jornada: "ÚNICA", clase: "901", grado: "9", dane: "11100101466401" },
+    { colegio: "COLEGIO MARIA CANO (IED)", sede: "MARIA CANO", jornada: "ÚNICA", clase: "701", grado: "7", dane: "11100110779401" },
+    { colegio: "COLEGIO MARRUECOS Y MOLINOS (IED)", sede: "MARRUECOS Y MOLINOS", jornada: "TARDE", clase: "703", grado: "7", dane: "11100107637601" },
+    { colegio: "COLEGIO RAFAEL DELGADO SALGUERO (IED)", sede: "GENERAL PAEZ", jornada: "ÚNICA", clase: "801", grado: "8", dane: "11100101297101" },
+    { colegio: "COLEGIO SAN AGUSTIN (IED)", sede: "SAN AGUSTIN", jornada: "MAÑANA", clase: "803", grado: "8", dane: "11100101381101" }
+  ],
+  "SAN CRISTOBAL": [
+    { colegio: "COLEGIO ALEMANIA UNIFICADA (IED)", sede: "GUACAMAYAS", jornada: "ÚNICA", clase: "9903", grado: "99", dane: "11100103086401" },
+    { colegio: "COLEGIO ATENAS (IED)", sede: "ATENAS", jornada: "MAÑANA", clase: "801", grado: "8", dane: "11100101830901" },
+    { colegio: "COLEGIO GLORIA VALENCIA DE CASTAÑO (IED)", sede: "COLEGIO GLORIA VALENCIA DE CASTAÑO (IED)", jornada: "ÚNICA", clase: "702", grado: "7", dane: "11100180104701" },
+    { colegio: "COLEGIO JOSE ACEVEDO Y GOMEZ (IED)", sede: "JOSE ACEVEDO Y GOMEZ", jornada: "ÚNICA", clase: "901", grado: "9", dane: "11100101445101" },
+    { colegio: "COLEGIO JUANA ESCOBAR (IED)", sede: "JUANA ESCOBAR", jornada: "MAÑANA", clase: "903", grado: "9", dane: "11100101233501" },
+    { colegio: "COLEGIO LA BELLEZA LOS LIBERTADORES (IED)", sede: "LA BELLEZA", jornada: "TARDE", clase: "9903", grado: "99", dane: "11100101600401" },
+    { colegio: "COLEGIO LA VICTORIA (IED)", sede: "LA VICTORIA", jornada: "MAÑANA", clase: "801", grado: "8", dane: "11100101836801" },
+    { colegio: "COLEGIO MORALBA SUR ORIENTAL (IED)", sede: "MORALBA SURORIENTAL", jornada: "ÚNICA", clase: "802", grado: "8", dane: "11100102468601" },
+    { colegio: "COLEGIO NUEVA ROMA (IED)", sede: "COLEGIO NUEVA ROMA (IED) - SEDE PRINCIPAL", jornada: "ÚNICA", clase: "802", grado: "8", dane: "11100109881701" },
+    { colegio: "COLEGIO REPUBLICA DEL ECUADOR (IED)", sede: "REPUBLICA DEL ECUADOR", jornada: "ÚNICA", clase: "801", grado: "8", dane: "11100103243301" }
+  ],
+  "SANTAFE": [
+    { colegio: "COLEGIO EL VERJON (IED)", sede: "EL VERJON ALTO", jornada: "ÚNICA", clase: "702", grado: "7", dane: "21100102748501" },
+    { colegio: "COLEGIO MANUEL ELKIN PATARROYO (IED)", sede: "MANUEL ELKIN PATARROYO", jornada: "ÚNICA", clase: "801", grado: "8", dane: "11100109490101" },
+    { colegio: "COLEGIO POLICARPA SALAVARRIETA (IED)", sede: "POLICARPA SALAVARRIETA", jornada: "ÚNICA", clase: "802", grado: "8", dane: "11100100983101" }
+  ],
+  "SUBA": [
+    { colegio: "COLEGIO COMPARTIR SUBA (IED)", sede: "COMPARTIR SUBA", jornada: "ÚNICA", clase: "703", grado: "7", dane: "11100180081301" },
+    { colegio: "COLEGIO DELIA ZAPATA OLIVELLA (IED)", sede: "DELIA ZAPATA OLIVELLA", jornada: "TARDE", clase: "701", grado: "7", dane: "11100110425601" },
+    { colegio: "COLEGIO GUSTAVO MORALES MORALES (IED)", sede: "GUSTAVO MORALES MORALES", jornada: "MAÑANA", clase: "702", grado: "7", dane: "11100107551501" },
+    { colegio: "COLEGIO INSTITUTO TECNICO DISTRITAL JULIO FLOREZ (IED)", sede: "JULIO FLOREZ", jornada: "ÚNICA", clase: "902", grado: "9", dane: "11100101577602" },
+    { colegio: "COLEGIO RAMON DE ZUBIRIA (IED)", sede: "RAMON DE ZUBIRIA", jornada: "MAÑANA", clase: "802", grado: "8", dane: "11100108666501" },
+    { colegio: "COLEGIO REPUBLICA DOMINICANA (IED)", sede: "REPUBLICA DOMINICANA", jornada: "MAÑANA", clase: "702", grado: "7", dane: "11176900336001" }
+  ],
+  "TUNJUELITO": [
+    { colegio: "COLEGIO CIUDAD DE BOGOTA (IED)", sede: "CIUDAD DE BOGOTA", jornada: "MAÑANA", clase: "702", grado: "7", dane: "11100101421401" },
+    { colegio: "COLEGIO RUFINO JOSE CUERVO (IED)", sede: "RUFINO JOSE CUERVO", jornada: "TARDE", clase: "805", grado: "8", dane: "11100101820101" },
+    { colegio: "COLEGIO VENECIA (IED)", sede: "VENECIA", jornada: "MAÑANA", clase: "705", grado: "7", dane: "11100101025101" }
+  ],
+  "USME": [
+    { colegio: "COLEGIO EL CORTIJO - VIANEY (IED)", sede: "EL CORTIJO", jornada: "ÚNICA", clase: "802", grado: "8", dane: "11185000138001" },
+    { colegio: "COLEGIO EL UVAL (IED)", sede: "RURAL EL UVAL", jornada: "TARDE", clase: "701", grado: "7", dane: "21185000098101" },
+    { colegio: "COLEGIO FEDERICO GARCIA LORCA (IED)", sede: "FEDERICO GARCIA LORCA", jornada: "ÚNICA", clase: "902", grado: "9", dane: "11185000157601" },
+    { colegio: "COLEGIO LUIS EDUARDO MORA OSEJO (IED)", sede: "LUIS EDUARDO MORA OSEJO", jornada: "MAÑANA", clase: "702", grado: "7", dane: "11100109886801" },
+    { colegio: "COLEGIO MIGUEL DE CERVANTES SAAVEDRA (IED)", sede: "MIGUEL DE CERVANTES SAAVEDRA", jornada: "MAÑANA", clase: "701", grado: "7", dane: "11100108301101" }
+  ]
+};
 
 // =====================================================================
 // (You normally don't need to edit anything below this line.)
@@ -684,8 +809,12 @@ const BUFFER_MIN_AFTER = 60;
 const TEAM_BLOCK_MIN = SLOT_DURATION_HOURS * 60 + BUFFER_MIN_AFTER;
 const FIRST_START_HOUR = 6;     // 6:00 AM
 const LAST_START_HOUR = 17;     // 5:00 PM (last start; block ends at 7:00 PM)
-const WEEKS_AHEAD = 8;
 const TIMEZONE = "America/Bogota";
+
+// Calendar window: only allow reservations within [WINDOW_START, WINDOW_END].
+// Inclusive of both endpoints. Bogota local time.
+const WINDOW_START = new Date(2026, 7, 1);   // Aug 1, 2026  (month is 0-indexed)
+const WINDOW_END   = new Date(2026, 8, 15);  // Sep 15, 2026
 
 const DAY_NAMES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
 const MONTH_NAMES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
@@ -693,6 +822,7 @@ const MONTH_ABBR = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct",
 
 // ----- State -----
 let bookings = {};            // { "YYYY-MM-DD HH:mm": count }
+let bookingDetails = {};      // { "YYYY-MM-DD HH:mm": [ { colegio, jornada, clase, localidad } ] }
 let currentWeekStart = null;  // Monday of the displayed week, in Bogota local time
 let selectedSlot = null;
 
@@ -722,6 +852,41 @@ function addDays(d, n) {
   const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   r.setDate(r.getDate() + n);
   return r;
+}
+
+// First Monday whose Mon..Fri week intersects the window.
+// (e.g., if WINDOW_START is Saturday, we skip to the following Monday.)
+function windowFirstMonday() {
+  let d = new Date(WINDOW_START.getFullYear(), WINDOW_START.getMonth(), WINDOW_START.getDate());
+  while (d.getDay() === 0 || d.getDay() === 6) {
+    d.setDate(d.getDate() + 1);
+  }
+  return startOfWeekMonday(d);
+}
+
+// Last Monday whose Mon..Fri week intersects the window.
+function windowLastMonday() {
+  let d = new Date(WINDOW_END.getFullYear(), WINDOW_END.getMonth(), WINDOW_END.getDate());
+  while (d.getDay() === 0 || d.getDay() === 6) {
+    d.setDate(d.getDate() - 1);
+  }
+  return startOfWeekMonday(d);
+}
+
+// Clamp an arbitrary Monday to the allowed [first, last] range so we always
+// open the calendar inside the window even if "today" is outside it.
+function clampMondayToWindow(monday) {
+  const first = windowFirstMonday();
+  const last = windowLastMonday();
+  if (monday.getTime() < first.getTime()) return first;
+  if (monday.getTime() > last.getTime()) return last;
+  return monday;
+}
+
+// Is the given date within [WINDOW_START, WINDOW_END] (both inclusive)?
+function isInWindow(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  return d >= WINDOW_START.getTime() && d <= WINDOW_END.getTime();
 }
 
 function pad(n) { return String(n).padStart(2, '0'); }
@@ -811,6 +976,39 @@ async function postBooking(payload) {
   return await res.json();
 }
 
+// ----- Render helpers -----
+// Build the inner HTML of a slot button: a stacked list of "Colegio · Aula"
+// chips for any existing reservations, followed by remaining-cupos text.
+function renderSlotContent_(btn, slotBookings, cuposText) {
+  btn.innerHTML = '';
+  if (slotBookings && slotBookings.length) {
+    btn.classList.add('has-bookings');
+    const list = document.createElement('div');
+    list.className = 'booking-list';
+    slotBookings.forEach(b => {
+      const chip = document.createElement('div');
+      chip.className = 'booking-chip';
+      const name = (typeof shortColegio === 'function') ? shortColegio(b.colegio || '') : (b.colegio || '');
+      const clase = b.clase ? ` · ${b.clase}` : '';
+      chip.textContent = `${name}${clase}`;
+      chip.title = `${b.colegio || ''} · ${b.jornada || ''} · Aula ${b.clase || ''}`;
+      list.appendChild(chip);
+    });
+    btn.appendChild(list);
+  }
+  const c = document.createElement('div');
+  c.className = 'slot-cupos';
+  c.textContent = cuposText;
+  btn.appendChild(c);
+}
+
+function slotBookingsAriaLabel_(hour, minute, date, slotBookings, cuposText) {
+  const base = `${formatTime(hour, minute)} ${formatDateLong(date)}: ${cuposText}`;
+  if (!slotBookings || !slotBookings.length) return base;
+  const names = slotBookings.map(b => `${b.colegio} aula ${b.clase}`).join(', ');
+  return `${base}. Ya reservaron: ${names}.`;
+}
+
 // ----- Render -----
 function renderCalendar() {
   const body = document.getElementById('calendarBody');
@@ -818,10 +1016,10 @@ function renderCalendar() {
   const prevBtn = document.getElementById('prevWeek');
   const nextBtn = document.getElementById('nextWeek');
 
-  const todayMonday = startOfWeekMonday(nowInBogota());
-  const maxMonday = addDays(todayMonday, (WEEKS_AHEAD - 1) * 7);
-  prevBtn.disabled = currentWeekStart.getTime() <= todayMonday.getTime();
-  nextBtn.disabled = currentWeekStart.getTime() >= maxMonday.getTime();
+  const firstMonday = windowFirstMonday();
+  const lastMonday = windowLastMonday();
+  prevBtn.disabled = currentWeekStart.getTime() <= firstMonday.getTime();
+  nextBtn.disabled = currentWeekStart.getTime() >= lastMonday.getTime();
 
   const friday = addDays(currentWeekStart, 4);
   const sameMonth = currentWeekStart.getMonth() === friday.getMonth();
@@ -864,6 +1062,7 @@ function renderCalendar() {
 
       const slotDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), s.hour, s.minute);
       const isPast = slotDate.getTime() <= now.getTime();
+      const outsideWindow = !isInWindow(d);
       const key = slotKey(d, s.hour, s.minute);
       const left = cuposLeftToStart(d, s.hour, s.minute);
 
@@ -871,20 +1070,29 @@ function renderCalendar() {
       btn.type = 'button';
       btn.className = 'slot';
 
-      if (isPast) {
+      // Schools that have already booked this exact start time
+      const slotBookings = bookingDetails[key] || [];
+
+      if (outsideWindow) {
+        btn.classList.add('past');
+        btn.disabled = true;
+        btn.setAttribute('aria-label', 'Fecha fuera de la ventana de reservas');
+      } else if (isPast) {
         btn.classList.add('past');
         btn.disabled = true;
         btn.setAttribute('aria-label', 'Horario pasado');
       } else if (left === 0) {
         btn.classList.add('full');
         btn.disabled = true;
-        btn.textContent = 'Sin cupo';
+        renderSlotContent_(btn, slotBookings, 'Sin cupo');
+        btn.setAttribute('aria-label', slotBookingsAriaLabel_(s.hour, s.minute, d, slotBookings, 'Sin cupo'));
       } else {
         if (left <= 1) btn.classList.add('low');
         else if (left <= 3) btn.classList.add('partial');
         // else: default (available, green)
-        btn.textContent = `${left} ${left === 1 ? 'cupo' : 'cupos'}`;
-        btn.setAttribute('aria-label', `${formatTime(s.hour, s.minute)} ${formatDateLong(d)}: ${left} cupos disponibles`);
+        const cuposText = `${left} ${left === 1 ? 'cupo' : 'cupos'}`;
+        renderSlotContent_(btn, slotBookings, cuposText);
+        btn.setAttribute('aria-label', slotBookingsAriaLabel_(s.hour, s.minute, d, slotBookings, cuposText));
         btn.addEventListener('click', () => openModal(d, s.hour, s.minute, key));
       }
       cell.appendChild(btn);
@@ -911,10 +1119,10 @@ function openModal(date, hour, minute, key) {
   document.getElementById('blockSummaryDay').textContent = formatDateLong(date);
   document.getElementById('formError').classList.remove('show');
   document.getElementById('bookingForm').reset();
-  document.getElementById('gradeSelect').innerHTML = '<option value="">Primero selecciona el colegio</option>';
-  document.getElementById('gradeSelect').disabled = true;
+  document.getElementById('schoolSelect').innerHTML = '<option value="">Primero selecciona la localidad</option>';
+  document.getElementById('schoolSelect').disabled = true;
   document.getElementById('modalBackdrop').classList.add('open');
-  setTimeout(() => document.getElementById('schoolSelect').focus(), 50);
+  setTimeout(() => document.getElementById('localidadSelect').focus(), 50);
 }
 
 function closeModal() {
@@ -922,37 +1130,71 @@ function closeModal() {
   selectedSlot = null;
 }
 
-function populateSchools() {
-  const sel = document.getElementById('schoolSelect');
-  SCHOOLS.forEach(s => {
+// ---- Localidad / Colegio cascading dropdowns ----
+// Display helpers: keep raw values in caps (matches CSV) but show
+// title-cased localidad names so the dropdown reads nicely.
+function titleCase(s) {
+  if (!s) return s;
+  return s.toLowerCase().replace(/(^|\s|-|\/)([a-záéíóúüñ])/g,
+    (_, sep, ch) => sep + ch.toUpperCase());
+}
+
+// Short label for use in the calendar slot. Strips "COLEGIO " prefix and
+// " (IED)" suffix so the chip stays compact.
+function shortColegio(name) {
+  return name
+    .replace(/^COLEGIO\s+/i, '')
+    .replace(/\s*\(IED\)\s*$/i, '')
+    .trim();
+}
+
+// Build the option label shown in the colegio dropdown.
+function colegioOptionLabel(entry) {
+  return `${shortColegio(entry.colegio)} · ${entry.jornada} · ${entry.clase}`;
+}
+
+function populateLocalidades() {
+  const sel = document.getElementById('localidadSelect');
+  Object.keys(SCHOOLS_BY_LOCALIDAD).sort().forEach(loc => {
     const opt = document.createElement('option');
-    opt.value = s.name;
-    opt.textContent = s.name;
+    opt.value = loc;
+    opt.textContent = titleCase(loc);
     sel.appendChild(opt);
   });
 }
 
-function onSchoolChange() {
-  const sel = document.getElementById('schoolSelect');
-  const gradeSel = document.getElementById('gradeSelect');
-  const selected = SCHOOLS.find(s => s.name === sel.value);
-  gradeSel.innerHTML = '';
-  if (!selected) {
-    gradeSel.innerHTML = '<option value="">Primero selecciona el colegio</option>';
-    gradeSel.disabled = true;
+function onLocalidadChange() {
+  const locSel = document.getElementById('localidadSelect');
+  const schSel = document.getElementById('schoolSelect');
+  const list = SCHOOLS_BY_LOCALIDAD[locSel.value] || [];
+  schSel.innerHTML = '';
+  if (!list.length) {
+    schSel.innerHTML = '<option value="">Primero selecciona la localidad</option>';
+    schSel.disabled = true;
     return;
   }
   const placeholder = document.createElement('option');
   placeholder.value = '';
-  placeholder.textContent = 'Selecciona el curso…';
-  gradeSel.appendChild(placeholder);
-  selected.grades.forEach(g => {
+  placeholder.textContent = 'Selecciona el colegio…';
+  schSel.appendChild(placeholder);
+  list.forEach((entry, idx) => {
     const opt = document.createElement('option');
-    opt.value = String(g);
-    opt.textContent = `Grado ${g}`;
-    gradeSel.appendChild(opt);
+    // Encode the index so we can recover the full record on submit.
+    opt.value = String(idx);
+    opt.textContent = colegioOptionLabel(entry);
+    schSel.appendChild(opt);
   });
-  gradeSel.disabled = false;
+  schSel.disabled = false;
+}
+
+function getSelectedColegio() {
+  const loc = document.getElementById('localidadSelect').value;
+  const idxStr = document.getElementById('schoolSelect').value;
+  if (!loc || idxStr === '') return null;
+  const list = SCHOOLS_BY_LOCALIDAD[loc] || [];
+  const idx = parseInt(idxStr, 10);
+  if (isNaN(idx) || idx < 0 || idx >= list.length) return null;
+  return { localidad: loc, ...list[idx] };
 }
 
 function showFormError(msg) {
@@ -970,13 +1212,12 @@ function showToast(msg, type = '') {
 }
 
 async function submitBooking() {
-  const school = document.getElementById('schoolSelect').value;
-  const grade = document.getElementById('gradeSelect').value;
+  const sel = getSelectedColegio();
   const contact = document.getElementById('contactInput').value.trim();
   const phone = document.getElementById('phoneInput').value.trim();
 
-  if (!school) return showFormError('Selecciona un colegio.');
-  if (!grade) return showFormError('Selecciona un curso.');
+  if (!document.getElementById('localidadSelect').value) return showFormError('Selecciona una localidad.');
+  if (!sel) return showFormError('Selecciona un colegio.');
   if (!contact) return showFormError('Ingresa el nombre del contacto.');
   if (!phone) return showFormError('Ingresa un teléfono.');
   if (!/^[0-9]{7,15}$/.test(phone)) return showFormError('El teléfono debe tener solo números (7 a 15 dígitos).');
@@ -996,8 +1237,12 @@ async function submitBooking() {
   try {
     const res = await postBooking({
       slot: selectedSlot.iso,
-      school,
-      grade,
+      school: sel.colegio,
+      grade: sel.clase,           // "clase" (e.g., 702) is what we track per aula
+      jornada: sel.jornada,
+      localidad: sel.localidad,
+      sede: sel.sede,
+      dane: sel.dane,
       contact,
       phone
     });
@@ -1010,6 +1255,9 @@ async function submitBooking() {
     } else if (res && res.error === 'slot_full') {
       showFormError('Ese horario acaba de llenarse, por favor elige otro.');
       // Refresh in background so the calendar updates
+      refresh();
+    } else if (res && res.error === 'already_booked') {
+      showFormError('Este colegio ya tiene una reserva en este horario.');
       refresh();
     } else {
       const err = (res && res.error) ? res.error : 'desconocido';
@@ -1030,6 +1278,7 @@ async function refresh() {
   try {
     const data = await fetchBookings();
     bookings = (data && data.bookings) || {};
+    bookingDetails = (data && data.details) || {};
     renderCalendar();
   } catch (err) {
     body.innerHTML = `
@@ -1046,8 +1295,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!isConfigured()) {
     document.getElementById('configWarning').style.display = 'block';
   }
-  populateSchools();
-  currentWeekStart = startOfWeekMonday(nowInBogota());
+  populateLocalidades();
+  currentWeekStart = clampMondayToWindow(startOfWeekMonday(nowInBogota()));
   refresh();
 
   document.getElementById('prevWeek').addEventListener('click', () => {
@@ -1058,7 +1307,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentWeekStart = addDays(currentWeekStart, 7);
     renderCalendar();
   });
-  document.getElementById('schoolSelect').addEventListener('change', onSchoolChange);
+  document.getElementById('localidadSelect').addEventListener('change', onLocalidadChange);
   document.getElementById('cancelBtn').addEventListener('click', closeModal);
   document.getElementById('confirmBtn').addEventListener('click', submitBooking);
   document.getElementById('phoneInput').addEventListener('input', (e) => {

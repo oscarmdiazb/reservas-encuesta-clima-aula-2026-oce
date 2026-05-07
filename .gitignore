@@ -1,0 +1,8 @@
+# Sensitive student-level data — must never be pushed to a public repo.
+# The school list needed by the app is already embedded in index.html.
+Final Treatment Assignment Round 3.csv
+*.csv
+
+# OS junk
+.DS_Store
+Thumbs.db

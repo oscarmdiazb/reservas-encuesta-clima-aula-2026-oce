@@ -5,7 +5,9 @@
  *   https://oscarmdiazb.github.io/reservas-encuesta-clima-aula-2026-oce/
  *
  * What this does:
- *   - GET  → returns counts per slot ({ "YYYY-MM-DD HH:mm": n }), no PII.
+ *   - GET  → returns counts per slot AND per-slot booking details
+ *            (localidad, colegio, jornada, clase). Contacto + teléfono are
+ *            never exposed by GET — they live only in the private Sheet.
  *   - POST → validates capacity and appends a row to the "Reservas" sheet.
  *   - Uses LockService so two concurrent bookings can't both fill the last seat.
  *
@@ -35,8 +37,13 @@ const TEAM_BLOCK_MIN = SLOT_DURATION_HOURS * 60 + BUFFER_MIN_AFTER;
 
 function doGet(e) {
   try {
-    const counts = getCurrentCounts_();
-    return jsonOut_({ ok: true, bookings: counts, capacity: CAPACITY });
+    const data = getCurrentData_();
+    return jsonOut_({
+      ok: true,
+      bookings: data.counts,    // { "YYYY-MM-DD HH:mm": n }   (back-compat)
+      details: data.details,    // { "YYYY-MM-DD HH:mm": [ { colegio, jornada, clase, localidad } ] }
+      capacity: CAPACITY
+    });
   } catch (err) {
     return jsonOut_({ ok: false, error: String(err) });
   }
@@ -59,11 +66,15 @@ function doPost(e) {
       return jsonOut_({ ok: false, error: 'invalid_json' });
     }
 
-    const slot    = (body && body.slot)    ? String(body.slot).trim()    : '';
-    const school  = (body && body.school)  ? String(body.school).trim()  : '';
-    const grade   = (body && body.grade)   ? String(body.grade).trim()   : '';
-    const contact = (body && body.contact) ? String(body.contact).trim() : '';
-    const phone   = (body && body.phone)   ? String(body.phone).trim()   : '';
+    const slot      = (body && body.slot)      ? String(body.slot).trim()      : '';
+    const school    = (body && body.school)    ? String(body.school).trim()    : '';
+    const grade     = (body && body.grade)     ? String(body.grade).trim()     : '';
+    const jornada   = (body && body.jornada)   ? String(body.jornada).trim()   : '';
+    const localidad = (body && body.localidad) ? String(body.localidad).trim() : '';
+    const sede      = (body && body.sede)      ? String(body.sede).trim()      : '';
+    const dane      = (body && body.dane)      ? String(body.dane).trim()      : '';
+    const contact   = (body && body.contact)   ? String(body.contact).trim()   : '';
+    const phone     = (body && body.phone)     ? String(body.phone).trim()     : '';
 
     if (!slot || !school || !grade || !contact || !phone) {
       return jsonOut_({ ok: false, error: 'missing_fields' });
@@ -80,10 +91,16 @@ function doPost(e) {
     // so booking at slot T must leave at least 1 cupo free at every half-hour
     // during [T, T+2h). This prevents a school from booking 8:00 while the
     // surveying team is still busy with someone else's 6:30–8:30 session.
-    const counts = getCurrentCounts_();
+    const counts = getCurrentData_().counts;
     const active = buildActiveMap_(counts);
     if (maxActiveDuringSession_(active, slot) >= CAPACITY) {
       return jsonOut_({ ok: false, error: 'slot_full' });
+    }
+
+    // Reject duplicate (colegio, slot) reservations so the same aula can't
+    // accidentally double-book the same time block.
+    if (hasExisting_(slot, school)) {
+      return jsonOut_({ ok: false, error: 'already_booked' });
     }
 
     const sheet = getSheet_();
@@ -92,9 +109,13 @@ function doPost(e) {
     // Force the Slot column to plain text so Sheets doesn't auto-parse
     // "2026-05-06 06:00" into a date in some other timezone.
     sheet.getRange(newRow, 2).setNumberFormat('@');
-    sheet.getRange(newRow, 6).setNumberFormat('@');
+    sheet.getRange(newRow, 6).setNumberFormat('@'); // Clase as plain text
+    sheet.getRange(newRow, 10).setNumberFormat('@'); // Teléfono as plain text
 
-    sheet.appendRow([new Date(), slot, school, grade, contact, phone]);
+    // Columns: Timestamp | Slot | Localidad | Colegio | Jornada | Clase | Sede | DANE | Contacto | Teléfono
+    sheet.appendRow([
+      new Date(), slot, localidad, school, jornada, grade, sede, dane, contact, phone
+    ]);
 
     return jsonOut_({ ok: true });
   } catch (err) {
@@ -106,38 +127,69 @@ function doPost(e) {
 
 // ---------- Helpers ----------
 
+// Header columns in the Reservas sheet — order matters for appendRow() and
+// the column reads in getCurrentData_().
+const HEADER = [
+  'Timestamp', 'Slot', 'Localidad', 'Colegio', 'Jornada',
+  'Clase', 'Sede', 'DANE', 'Contacto', 'Teléfono'
+];
+
 function getSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
-    sheet.getRange(1, 1, 1, 6)
-      .setValues([['Timestamp', 'Slot', 'Colegio', 'Grado', 'Contacto', 'Teléfono']])
+    sheet.getRange(1, 1, 1, HEADER.length)
+      .setValues([HEADER])
       .setFontWeight('bold');
   }
   return sheet;
 }
 
-function getCurrentCounts_() {
+// Read all rows once and return both per-slot counts AND the per-slot booking
+// details (so the calendar can show which schools have already reserved).
+function getCurrentData_() {
   const sheet = getSheet_();
   const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return {};
-  const values = sheet.getRange(2, 2, lastRow - 1, 1).getValues(); // column B = Slot
+  if (lastRow <= 1) return { counts: {}, details: {} };
+
+  // Read all data columns at once.
+  const values = sheet.getRange(2, 1, lastRow - 1, HEADER.length).getValues();
   const counts = {};
+  const details = {};
+
   for (let i = 0; i < values.length; i++) {
-    const v = values[i][0];
-    if (v === '' || v == null) continue;
+    const row = values[i];
+    const slotRaw = row[1]; // column B
+    if (slotRaw === '' || slotRaw == null) continue;
     let key;
-    if (Object.prototype.toString.call(v) === '[object Date]') {
-      // If Sheets coerced the cell to a date, format it back in Bogota TZ.
-      key = Utilities.formatDate(v, TIMEZONE, 'yyyy-MM-dd HH:mm');
+    if (Object.prototype.toString.call(slotRaw) === '[object Date]') {
+      key = Utilities.formatDate(slotRaw, TIMEZONE, 'yyyy-MM-dd HH:mm');
     } else {
-      key = String(v).trim();
+      key = String(slotRaw).trim();
     }
     if (!key) continue;
     counts[key] = (counts[key] || 0) + 1;
+    if (!details[key]) details[key] = [];
+    details[key].push({
+      localidad: String(row[2] || ''),
+      colegio:   String(row[3] || ''),
+      jornada:   String(row[4] || ''),
+      clase:     String(row[5] || ''),
+      // Note: contact + phone are intentionally NOT exposed via the public GET.
+    });
   }
-  return counts;
+  return { counts: counts, details: details };
+}
+
+// Used by doPost to detect duplicate (school, slot) submissions.
+function hasExisting_(slot, school) {
+  const data = getCurrentData_();
+  const list = data.details[slot] || [];
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].colegio === school) return true;
+  }
+  return false;
 }
 
 function jsonOut_(obj) {
@@ -207,24 +259,29 @@ function setup() {
     sheet = ss.insertSheet(SHEET_NAME);
   }
 
-  const header = ['Timestamp', 'Slot', 'Colegio', 'Grado', 'Contacto', 'Teléfono'];
-  sheet.getRange(1, 1, 1, header.length)
-    .setValues([header])
+  sheet.getRange(1, 1, 1, HEADER.length)
+    .setValues([HEADER])
     .setFontWeight('bold')
     .setBackground('#f3f4f6');
   sheet.setFrozenRows(1);
 
   sheet.getRange('A:A').setNumberFormat('yyyy-mm-dd hh:mm:ss');
   sheet.getRange('B:B').setNumberFormat('@'); // Slot as plain text
-  sheet.getRange('D:D').setNumberFormat('@'); // Grado as plain text
-  sheet.getRange('F:F').setNumberFormat('@'); // Teléfono as plain text
+  sheet.getRange('F:F').setNumberFormat('@'); // Clase as plain text
+  sheet.getRange('H:H').setNumberFormat('@'); // DANE as plain text
+  sheet.getRange('J:J').setNumberFormat('@'); // Teléfono as plain text
 
-  sheet.setColumnWidth(1, 170);
-  sheet.setColumnWidth(2, 140);
-  sheet.setColumnWidth(3, 180);
-  sheet.setColumnWidth(4, 80);
-  sheet.setColumnWidth(5, 220);
-  sheet.setColumnWidth(6, 130);
+  // Columns: Timestamp | Slot | Localidad | Colegio | Jornada | Clase | Sede | DANE | Contacto | Teléfono
+  sheet.setColumnWidth(1, 170); // Timestamp
+  sheet.setColumnWidth(2, 140); // Slot
+  sheet.setColumnWidth(3, 150); // Localidad
+  sheet.setColumnWidth(4, 280); // Colegio
+  sheet.setColumnWidth(5, 90);  // Jornada
+  sheet.setColumnWidth(6, 70);  // Clase
+  sheet.setColumnWidth(7, 200); // Sede
+  sheet.setColumnWidth(8, 140); // DANE
+  sheet.setColumnWidth(9, 220); // Contacto
+  sheet.setColumnWidth(10, 130); // Teléfono
 
   Logger.log('Setup complete. Sheet "%s" is ready.', SHEET_NAME);
 }

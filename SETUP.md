@@ -13,9 +13,9 @@ You'll do this once. Total time: ~15 minutes.
 3. Rename the first tab to `Reservas` (exactly that, capitalized).
 4. In row 1, add these column headers (left to right):
 
-   | A | B | C | D | E | F |
-   |---|---|---|---|---|---|
-   | Timestamp | Slot | Colegio | Grado | Contacto | Teléfono |
+   | A | B | C | D | E | F | G | H | I | J |
+   |---|---|---|---|---|---|---|---|---|---|
+   | Timestamp | Slot | Localidad | Colegio | Jornada | Clase | Sede | DANE | Contacto | Teléfono |
 
    (The Apps Script `setup` function in step 2 will also do this for you, so you can skip this if you'd rather run that.)
 
@@ -29,7 +29,7 @@ You'll do this once. Total time: ~15 minutes.
 4. Click the disk icon (or **Cmd/Ctrl + S**) to save. Name the project something like `reservas-encuesta-clima-aula-backend`.
 5. In the Apps Script editor, in the function dropdown at the top, choose `setup` and click **Run**.
    - The first run will ask for permissions (read/write to your Sheet). Approve them — it's your own script accessing your own Sheet.
-   - This creates the `Reservas` tab if missing, writes the header row, freezes it, sets column widths, and forces the `Slot` / `Grado` / `Teléfono` columns to plain text so Sheets doesn't auto-parse `"2026-05-06 06:00"` as a date in the wrong timezone.
+   - This creates the `Reservas` tab if missing, writes the header row, freezes it, sets column widths, and forces the `Slot` / `Clase` / `DANE` / `Teléfono` columns to plain text so Sheets doesn't auto-parse `"2026-05-06 06:00"` as a date in the wrong timezone or strip leading zeros from class/DANE codes.
 
 ---
 
@@ -70,7 +70,7 @@ You'll do this once. Total time: ~15 minutes.
 3. Replace `PASTE_DEPLOYMENT_URL_HERE` with the URL you copied. Keep the quotes.
 4. Save.
 
-While you're in there: edit the `SCHOOLS` array right below it to put the real school names (and adjust per-school grade lists if needed).
+While you're in there: the `SCHOOLS_BY_LOCALIDAD` object right below already has the 80 colegios from `Final Treatment Assignment Round 3.csv` (16 localidades, one aula per colegio). If the sample changes, edit that object directly — each entry has `colegio`, `sede`, `jornada`, `clase`, `grado`, and `dane`.
 
 ---
 
@@ -122,7 +122,7 @@ After saving in the Apps Script editor, the changes don't go live until you push
 The URL stays the same, so you don't need to update `index.html`.
 
 **Viewing bookings**
-Just open the Google Sheet — every booking is appended as a row with timestamp, slot, school, grade, contact, and phone. Sort by Slot (column B) to see who's booked when.
+Just open the Google Sheet — every booking is appended as a row with timestamp, slot, localidad, colegio, jornada, clase, sede, DANE, contacto, and teléfono. Sort by Slot (column B) to see who's booked when.
 
 **Backing up bookings**
 File → Download → CSV / Excel from the Sheet whenever you want a snapshot.
@@ -147,4 +147,4 @@ Almost always one of:
 Check the spreadsheet timezone: `File → Settings → Time zone` should be `(GMT-05:00) Bogota`. The `setup` function sets this automatically, so re-run it if needed.
 
 **Slots in column B got auto-parsed as dates**
-Run `setup` again from the Apps Script editor. It re-applies plain-text formatting to column B. Existing rows are fine — `getCurrentCounts_` handles both string and Date values.
+Run `setup` again from the Apps Script editor. It re-applies plain-text formatting to column B. Existing rows are fine — `getCurrentData_` handles both string and Date values.
