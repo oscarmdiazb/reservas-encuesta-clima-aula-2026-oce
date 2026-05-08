@@ -569,6 +569,39 @@
     font-weight: 600;
   }
 
+  .logistics-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: #eef4fa;
+    border: 1px solid #cfe0f0;
+    color: #0c3d68;
+    padding: 14px 16px;
+    border-radius: 10px;
+    margin: 16px 0 0;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .logistics-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 800;
+    font-size: 14px;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+  }
+
+  .logistics-text { flex: 1; }
+  .logistics-text strong { color: var(--primary); font-weight: 800; }
+
   @media (max-width: 640px) {
     .container { padding: 20px 12px 40px; }
     h1 { font-size: 22px; }
@@ -585,8 +618,15 @@
   <header>
     <div class="brand">OCE-SED · Encuesta de clima de aula</div>
     <h1>Reserva el horario para aplicar la encuesta</h1>
-    <p class="lead">Cada bloque dura 2 horas y se reserva por aula. La ventana de reservas va del <strong>1 de agosto al 15 de septiembre de 2026</strong>. Selecciona tu localidad, tu colegio y el horario que prefieras.</p>
+    <p class="lead">La encuesta requiere <strong>dos horas de clase (un bloque)</strong> y se reserva por aula. La ventana de reservas va del <strong>1 de agosto al 15 de septiembre de 2026</strong>. Selecciona tu localidad, tu colegio y el horario que prefieras.</p>
   </header>
+
+  <div class="logistics-note">
+    <div class="logistics-icon" aria-hidden="true">i</div>
+    <div class="logistics-text">
+      <strong>Después de reservar:</strong> el equipo encuestador se comunicará con el colegio para confirmar la logística. Agradecemos garantizar el acceso al salón de clases en la fecha reservada — los materiales para el ejercicio los traerá el equipo encuestador.
+    </div>
+  </div>
 
   <div id="configWarning" class="config-warning" style="display:none">
     ⚠️ La URL de Apps Script no está configurada. Edita la constante <code>APPS_SCRIPT_URL</code> en <code>index.html</code>.
