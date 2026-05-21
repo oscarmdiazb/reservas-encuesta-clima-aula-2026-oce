@@ -525,6 +525,22 @@
 
   .form-error.show { display: block; }
 
+  .aula-warning {
+    color: #92400e;
+    font-size: 13px;
+    padding: 10px 12px;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    display: none;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .aula-warning.show { display: block; }
+  .aula-warning strong { color: #78350f; font-weight: 800; }
+
   .block-summary {
     background: #eef4fa;
     border: 1px solid #cfe0f0;
@@ -674,6 +690,7 @@
     </div>
     <form id="bookingForm" class="modal-body" novalidate>
       <div class="form-error" id="formError"></div>
+      <div class="aula-warning" id="aulaWarning"></div>
       <div class="block-summary" id="blockSummary">
         <div class="block-summary-label">Vas a reservar el bloque completo de 2 horas</div>
         <div class="block-summary-time" id="blockSummaryTime"></div>
@@ -852,9 +869,9 @@ const LAST_START_HOUR = 17;     // 5:00 PM (last start; block ends at 7:00 PM)
 const TIMEZONE = "America/Bogota";
 
 // Calendar window: only allow reservations within [WINDOW_START, WINDOW_END].
-// Inclusive of both endpoints. Bogota local time.
-const WINDOW_START = new Date(2026, 7, 1);   // Aug 1, 2026  (month is 0-indexed)
-const WINDOW_END   = new Date(2026, 8, 15);  // Sep 15, 2026
+// Inclusive of both endpoints. Bogota local time. Month is 0-indexed.
+const WINDOW_START = new Date(2026, 6, 15);  // Jul 15, 2026 (miércoles)
+const WINDOW_END   = new Date(2026, 8, 4);   // Sep 4, 2026  (viernes)
 
 const DAY_NAMES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
 const MONTH_NAMES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
@@ -1158,6 +1175,7 @@ function openModal(date, hour, minute, key) {
     `${formatTime(hour, minute)} – ${endTime(hour, minute)}`;
   document.getElementById('blockSummaryDay').textContent = formatDateLong(date);
   document.getElementById('formError').classList.remove('show');
+  document.getElementById('aulaWarning').classList.remove('show');
   document.getElementById('bookingForm').reset();
   document.getElementById('schoolSelect').innerHTML = '<option value="">Primero selecciona la localidad</option>';
   document.getElementById('schoolSelect').disabled = true;
@@ -1237,6 +1255,53 @@ function getSelectedColegio() {
   return { localidad: loc, ...list[idx] };
 }
 
+// Scans the public bookingDetails map for an existing reservation for this
+// exact aula (colegio + sede + jornada + clase). Returns the slot key
+// "YYYY-MM-DD HH:mm" of the existing reservation, or null.
+function findExistingReservationForAula(sel) {
+  if (!sel) return null;
+  const claseStr = String(sel.clase || '');
+  for (const slotK of Object.keys(bookingDetails)) {
+    const list = bookingDetails[slotK] || [];
+    for (const r of list) {
+      if (r.colegio === sel.colegio &&
+          r.sede === sel.sede &&
+          r.jornada === sel.jornada &&
+          r.clase === claseStr) {
+        return slotK;
+      }
+    }
+  }
+  return null;
+}
+
+// "2026-08-12 08:00" → "miércoles 12 de agosto a las 8:00 a.m."
+function humanizeSlotKey(slotK) {
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(slotK);
+  if (!m) return slotK;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  const h = +m[4], mi = +m[5];
+  return `${formatDateLong(d)} a las ${formatTime(h, mi)}`;
+}
+
+// Show / clear an inline warning right above the form when the picked aula
+// already has a reservation somewhere in the calendar.
+function refreshAulaWarning() {
+  const warn = document.getElementById('aulaWarning');
+  if (!warn) return;
+  const sel = getSelectedColegio();
+  const existing = findExistingReservationForAula(sel);
+  if (existing) {
+    warn.innerHTML =
+      `Esta aula ya tiene una reserva — <strong>${humanizeSlotKey(existing)}</strong>. ` +
+      `Solo se permite una reserva por aula. Si necesitas cambiarla, cancela la anterior contactando al whatsapp del proyecto.`;
+    warn.classList.add('show');
+  } else {
+    warn.classList.remove('show');
+    warn.textContent = '';
+  }
+}
+
 function showFormError(msg) {
   const el = document.getElementById('formError');
   el.textContent = msg;
@@ -1261,6 +1326,17 @@ async function submitBooking() {
   if (!contact) return showFormError('Ingresa el nombre del contacto.');
   if (!phone) return showFormError('Ingresa un teléfono.');
   if (!/^[0-9]{7,15}$/.test(phone)) return showFormError('El teléfono debe tener solo números (7 a 15 dígitos).');
+
+  // Client-side check: bail early if this aula already has a reservation.
+  // The backend re-checks too — this is just to avoid wasted submissions.
+  const existing = findExistingReservationForAula(sel);
+  if (existing) {
+    return showFormError(
+      `Esta aula ya tiene una reserva (${humanizeSlotKey(existing)}). ` +
+      `Solo se permite una reserva por aula. Si necesitas cambiarla, ` +
+      `cancela la anterior contactando al whatsapp del proyecto.`
+    );
+  }
 
   if (!isConfigured()) {
     return showFormError('La URL de Apps Script no está configurada. Edita APPS_SCRIPT_URL en index.html.');
@@ -1296,7 +1372,15 @@ async function submitBooking() {
       showFormError('Ese horario acaba de llenarse, por favor elige otro.');
       // Refresh in background so the calendar updates
       refresh();
+    } else if (res && res.error === 'aula_already_booked') {
+      const when = res.existingSlot ? ` (${humanizeSlotKey(res.existingSlot)})` : '';
+      showFormError(
+        `Esta aula ya tiene una reserva${when}. Solo se permite una reserva por aula. ` +
+        `Si necesitas cambiarla, cancela la anterior contactando al whatsapp del proyecto.`
+      );
+      refresh();
     } else if (res && res.error === 'already_booked') {
+      // Back-compat: old backend before per-aula uniqueness.
       showFormError('Este colegio ya tiene una reserva en este horario.');
       refresh();
     } else {
@@ -1347,7 +1431,11 @@ document.addEventListener('DOMContentLoaded', () => {
     currentWeekStart = addDays(currentWeekStart, 7);
     renderCalendar();
   });
-  document.getElementById('localidadSelect').addEventListener('change', onLocalidadChange);
+  document.getElementById('localidadSelect').addEventListener('change', () => {
+    onLocalidadChange();
+    refreshAulaWarning();
+  });
+  document.getElementById('schoolSelect').addEventListener('change', refreshAulaWarning);
   document.getElementById('cancelBtn').addEventListener('click', closeModal);
   document.getElementById('confirmBtn').addEventListener('click', submitBooking);
   document.getElementById('phoneInput').addEventListener('input', (e) => {
