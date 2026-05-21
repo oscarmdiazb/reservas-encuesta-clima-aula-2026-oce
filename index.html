@@ -152,6 +152,33 @@
   .week-nav {
     display: flex;
     gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .week-jump {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 700;
+    color: var(--text);
+    font-size: 13px;
+    min-width: 220px;
+    max-width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .week-jump:hover {
+    border-color: var(--primary);
+  }
+
+  .week-jump:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.12);
   }
 
   .nav-btn {
@@ -634,7 +661,7 @@
   <header>
     <div class="brand">OCE-SED · Encuesta de clima de aula</div>
     <h1>Reserva el horario para aplicar la encuesta</h1>
-    <p class="lead">La encuesta requiere <strong>dos horas de clase (un bloque)</strong> y se reserva por aula. La ventana de reservas va del <strong>1 de agosto al 15 de septiembre de 2026</strong>. Selecciona tu localidad, tu colegio y el horario que prefieras.</p>
+    <p class="lead">La encuesta requiere <strong>dos horas de clase (un bloque)</strong> y se reserva por aula. La ventana de reservas va del <strong>15 de julio al 4 de septiembre de 2026</strong>. Selecciona tu localidad, tu colegio y el horario que prefieras.</p>
   </header>
 
   <div class="logistics-note">
@@ -661,8 +688,11 @@
     <div class="calendar-header">
       <div class="week-label" id="weekLabel">Cargando…</div>
       <div class="week-nav">
-        <button class="nav-btn" id="prevWeek" type="button">← Semana anterior</button>
-        <button class="nav-btn" id="nextWeek" type="button">Semana siguiente →</button>
+        <select class="week-jump" id="weekJump" aria-label="Saltar a una semana específica">
+          <option value="">Cargando semanas…</option>
+        </select>
+        <button class="nav-btn" id="prevWeek" type="button" aria-label="Semana anterior">←</button>
+        <button class="nav-btn" id="nextWeek" type="button" aria-label="Semana siguiente">→</button>
       </div>
     </div>
     <div class="calendar-body" id="calendarBody">
@@ -1066,6 +1096,36 @@ function slotBookingsAriaLabel_(hour, minute, date, slotBookings, cuposText) {
   return `${base}. Ya reservaron: ${names}.`;
 }
 
+// Build the "Saltar a semana…" dropdown with one option per week in the window.
+// Value is the Monday's ISO date (YYYY-MM-DD); text is "Semana del 13 al 17 de julio".
+function populateWeekJump() {
+  const sel = document.getElementById('weekJump');
+  if (!sel) return;
+  sel.innerHTML = '';
+  let m = windowFirstMonday();
+  const end = windowLastMonday();
+  while (m.getTime() <= end.getTime()) {
+    const fri = addDays(m, 4);
+    const sameMonth = m.getMonth() === fri.getMonth();
+    const label = sameMonth
+      ? `Semana del ${m.getDate()} al ${fri.getDate()} de ${MONTH_NAMES[fri.getMonth()]}`
+      : `Semana del ${m.getDate()} de ${MONTH_NAMES[m.getMonth()]} al ${fri.getDate()} de ${MONTH_NAMES[fri.getMonth()]}`;
+    const opt = document.createElement('option');
+    opt.value = `${m.getFullYear()}-${pad(m.getMonth()+1)}-${pad(m.getDate())}`;
+    opt.textContent = label;
+    sel.appendChild(opt);
+    m = addDays(m, 7);
+  }
+}
+
+// Keep the dropdown's selected value pointing at the currently displayed week.
+function syncWeekJump() {
+  const sel = document.getElementById('weekJump');
+  if (!sel || !currentWeekStart) return;
+  const v = `${currentWeekStart.getFullYear()}-${pad(currentWeekStart.getMonth()+1)}-${pad(currentWeekStart.getDate())}`;
+  if (sel.value !== v) sel.value = v;
+}
+
 // ----- Render -----
 function renderCalendar() {
   const body = document.getElementById('calendarBody');
@@ -1083,6 +1143,8 @@ function renderCalendar() {
   weekLabel.textContent = sameMonth
     ? `Semana del ${currentWeekStart.getDate()} al ${friday.getDate()} de ${MONTH_NAMES[friday.getMonth()]}`
     : `Semana del ${currentWeekStart.getDate()} de ${MONTH_NAMES[currentWeekStart.getMonth()]} al ${friday.getDate()} de ${MONTH_NAMES[friday.getMonth()]}`;
+
+  syncWeekJump();
 
   const now = nowInBogota();
   const days = [0, 1, 2, 3, 4].map(i => addDays(currentWeekStart, i));
@@ -1420,8 +1482,18 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('configWarning').style.display = 'block';
   }
   populateLocalidades();
+  populateWeekJump();
   currentWeekStart = clampMondayToWindow(startOfWeekMonday(nowInBogota()));
   refresh();
+
+  document.getElementById('weekJump').addEventListener('change', (e) => {
+    const v = e.target.value;
+    if (!v) return;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    if (!m) return;
+    currentWeekStart = clampMondayToWindow(new Date(+m[1], +m[2] - 1, +m[3]));
+    renderCalendar();
+  });
 
   document.getElementById('prevWeek').addEventListener('click', () => {
     currentWeekStart = addDays(currentWeekStart, -7);
