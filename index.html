@@ -568,6 +568,47 @@
   .aula-warning.show { display: block; }
   .aula-warning strong { color: #78350f; font-weight: 800; }
 
+  .assignment-info {
+    font-size: 13px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    display: none;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .assignment-info.show { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+
+  .assignment-info.matched {
+    background: #ecfdf5;
+    border: 1px solid #6ee7b7;
+    color: #065f46;
+  }
+
+  .assignment-info.mismatched {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+  }
+
+  .assignment-info strong { font-weight: 800; }
+
+  .assignment-info .jump-btn {
+    background: var(--primary);
+    color: #fff;
+    border: 0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .assignment-info .jump-btn:hover { background: var(--primary-hover); }
+
   .block-summary {
     background: #eef4fa;
     border: 1px solid #cfe0f0;
@@ -661,7 +702,7 @@
   <header>
     <div class="brand">OCE-SED · Encuesta de clima de aula</div>
     <h1>Reserva el horario para aplicar la encuesta</h1>
-    <p class="lead">La encuesta requiere <strong>dos horas de clase (un bloque)</strong> y se reserva por aula. La ventana de reservas va del <strong>15 de julio al 4 de septiembre de 2026</strong>. Selecciona tu localidad, tu colegio y el horario que prefieras.</p>
+    <p class="lead">La encuesta requiere <strong>dos horas de clase (un bloque)</strong> y se reserva por aula. La ventana de reservas va del <strong>27 de julio al 4 de septiembre de 2026</strong>. Selecciona tu localidad, tu colegio y el horario que prefieras.</p>
   </header>
 
   <div class="logistics-note">
@@ -721,6 +762,7 @@
     <form id="bookingForm" class="modal-body" novalidate>
       <div class="form-error" id="formError"></div>
       <div class="aula-warning" id="aulaWarning"></div>
+      <div class="assignment-info" id="assignmentInfo"></div>
       <div class="block-summary" id="blockSummary">
         <div class="block-summary-label">Vas a reservar el bloque completo de 2 horas</div>
         <div class="block-summary-time" id="blockSummaryTime"></div>
@@ -900,7 +942,7 @@ const TIMEZONE = "America/Bogota";
 
 // Calendar window: only allow reservations within [WINDOW_START, WINDOW_END].
 // Inclusive of both endpoints. Bogota local time. Month is 0-indexed.
-const WINDOW_START = new Date(2026, 6, 15);  // Jul 15, 2026 (miércoles)
+const WINDOW_START = new Date(2026, 6, 27);  // Jul 27, 2026 (lunes)
 const WINDOW_END   = new Date(2026, 8, 4);   // Sep 4, 2026  (viernes)
 
 const DAY_NAMES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
@@ -909,7 +951,8 @@ const MONTH_ABBR = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct",
 
 // ----- State -----
 let bookings = {};            // { "YYYY-MM-DD HH:mm": count }
-let bookingDetails = {};      // { "YYYY-MM-DD HH:mm": [ { colegio, jornada, clase, localidad } ] }
+let bookingDetails = {};      // { "YYYY-MM-DD HH:mm": [ { colegio, jornada, clase, localidad, sede } ] }
+let assignments = {};         // { "Colegio|Sede|Jornada|Clase": "YYYY-MM-DD" }
 let currentWeekStart = null;  // Monday of the displayed week, in Bogota local time
 let selectedSlot = null;
 
@@ -1238,6 +1281,7 @@ function openModal(date, hour, minute, key) {
   document.getElementById('blockSummaryDay').textContent = formatDateLong(date);
   document.getElementById('formError').classList.remove('show');
   document.getElementById('aulaWarning').classList.remove('show');
+  document.getElementById('assignmentInfo').classList.remove('show');
   document.getElementById('bookingForm').reset();
   document.getElementById('schoolSelect').innerHTML = '<option value="">Primero selecciona la localidad</option>';
   document.getElementById('schoolSelect').disabled = true;
@@ -1364,6 +1408,71 @@ function refreshAulaWarning() {
   }
 }
 
+// ----- Aula → semana asignada -----
+
+// Build the lookup key used by the assignments map.
+function aulaKeyFor(sel) {
+  if (!sel) return '';
+  return [sel.colegio, sel.sede, sel.jornada, String(sel.clase || '')].join('|');
+}
+
+// Returns the Monday Date assigned to this aula, or null if no assignment exists
+// (or the assignment is invalid).
+function getAssignedMondayFor(sel) {
+  const key = aulaKeyFor(sel);
+  const v = assignments[key];
+  if (!v) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (!m) return null;
+  return new Date(+m[1], +m[2] - 1, +m[3]);
+}
+
+// "2026-07-27" Date → "del 27 al 31 de julio"
+function formatWeekRange(monday) {
+  const fri = addDays(monday, 4);
+  const sameMonth = monday.getMonth() === fri.getMonth();
+  return sameMonth
+    ? `del ${monday.getDate()} al ${fri.getDate()} de ${MONTH_NAMES[fri.getMonth()]}`
+    : `del ${monday.getDate()} de ${MONTH_NAMES[monday.getMonth()]} al ${fri.getDate()} de ${MONTH_NAMES[fri.getMonth()]}`;
+}
+
+// Show a green banner if the selected slot is in the assigned week, a yellow
+// banner with a "go to my week" button if it's elsewhere. Hidden if no
+// assignment exists for this aula or no slot is selected yet.
+function refreshAssignmentInfo() {
+  const box = document.getElementById('assignmentInfo');
+  if (!box) return;
+  box.classList.remove('show', 'matched', 'mismatched');
+  box.innerHTML = '';
+
+  const sel = getSelectedColegio();
+  if (!sel || !selectedSlot) return;
+
+  const assignedMonday = getAssignedMondayFor(sel);
+  if (!assignedMonday) return;
+
+  const selectedMonday = startOfWeekMonday(selectedSlot.date);
+  const matches = assignedMonday.getTime() === selectedMonday.getTime();
+
+  if (matches) {
+    box.classList.add('show', 'matched');
+    box.innerHTML = `✓ Esta es la semana asignada a tu aula (<strong>${formatWeekRange(assignedMonday)}</strong>).`;
+  } else {
+    box.classList.add('show', 'mismatched');
+    box.innerHTML =
+      `<span>⚠️ La semana asignada a tu aula es <strong>${formatWeekRange(assignedMonday)}</strong>. ` +
+      `Te recomendamos reservar en esa semana.</span>` +
+      `<button type="button" class="jump-btn" id="jumpToAssignedBtn">Ir a mi semana</button>`;
+    // Wire the jump button
+    const btn = document.getElementById('jumpToAssignedBtn');
+    if (btn) btn.addEventListener('click', () => {
+      closeModal();
+      currentWeekStart = clampMondayToWindow(assignedMonday);
+      renderCalendar();
+    });
+  }
+}
+
 function showFormError(msg) {
   const el = document.getElementById('formError');
   el.textContent = msg;
@@ -1398,6 +1507,22 @@ async function submitBooking() {
       `Solo se permite una reserva por aula. Si necesitas cambiarla, ` +
       `cancela la anterior contactando al whatsapp del proyecto.`
     );
+  }
+
+  // Soft check: if the aula has an assigned week and is trying to reserve in a
+  // different week, ask for confirmation. Lets them continue but makes the
+  // mismatch impossible to miss.
+  const assignedMonday = getAssignedMondayFor(sel);
+  if (assignedMonday && selectedSlot) {
+    const selectedMonday = startOfWeekMonday(selectedSlot.date);
+    if (assignedMonday.getTime() !== selectedMonday.getTime()) {
+      const ok = window.confirm(
+        `La semana asignada a tu aula es ${formatWeekRange(assignedMonday)}, ` +
+        `pero estás reservando en la semana ${formatWeekRange(selectedMonday)}.\n\n` +
+        `¿Quieres continuar de todos modos?`
+      );
+      if (!ok) return;
+    }
   }
 
   if (!isConfigured()) {
@@ -1465,6 +1590,7 @@ async function refresh() {
     const data = await fetchBookings();
     bookings = (data && data.bookings) || {};
     bookingDetails = (data && data.details) || {};
+    assignments = (data && data.assignments) || {};
     renderCalendar();
   } catch (err) {
     body.innerHTML = `
@@ -1506,8 +1632,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('localidadSelect').addEventListener('change', () => {
     onLocalidadChange();
     refreshAulaWarning();
+    refreshAssignmentInfo();
   });
-  document.getElementById('schoolSelect').addEventListener('change', refreshAulaWarning);
+  document.getElementById('schoolSelect').addEventListener('change', () => {
+    refreshAulaWarning();
+    refreshAssignmentInfo();
+  });
   document.getElementById('cancelBtn').addEventListener('click', closeModal);
   document.getElementById('confirmBtn').addEventListener('click', submitBooking);
   document.getElementById('phoneInput').addEventListener('input', (e) => {

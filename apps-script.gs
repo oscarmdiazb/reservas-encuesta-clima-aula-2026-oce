@@ -24,6 +24,7 @@
  */
 
 const SHEET_NAME = 'Reservas';
+const ASSIGNMENTS_SHEET_NAME = 'Asignaciones';
 const CAPACITY = 4;
 const TIMEZONE = 'America/Bogota';
 const SLOT_DURATION_HOURS = 2;
@@ -40,8 +41,9 @@ function doGet(e) {
     const data = getCurrentData_();
     return jsonOut_({
       ok: true,
-      bookings: data.counts,    // { "YYYY-MM-DD HH:mm": n }   (back-compat)
-      details: data.details,    // { "YYYY-MM-DD HH:mm": [ { colegio, jornada, clase, localidad } ] }
+      bookings: data.counts,        // { "YYYY-MM-DD HH:mm": n }   (back-compat)
+      details: data.details,        // { "YYYY-MM-DD HH:mm": [ { colegio, jornada, clase, localidad, sede } ] }
+      assignments: getAssignments_(),  // { "Colegio|Sede|Jornada|Clase": "YYYY-MM-DD" }
       capacity: CAPACITY
     });
   } catch (err) {
@@ -97,10 +99,16 @@ function doPost(e) {
       return jsonOut_({ ok: false, error: 'slot_full' });
     }
 
-    // Reject duplicate (colegio, slot) reservations so the same aula can't
-    // accidentally double-book the same time block.
-    if (hasExisting_(slot, school)) {
-      return jsonOut_({ ok: false, error: 'already_booked' });
+    // Each aula (colegio + sede + jornada + clase) is allowed exactly one
+    // reservation in the whole calendar. Reject any second attempt and return
+    // the existing slot so the frontend can tell the user when they booked.
+    const existingAula = findAulaReservation_(school, sede, jornada, grade);
+    if (existingAula) {
+      return jsonOut_({
+        ok: false,
+        error: 'aula_already_booked',
+        existingSlot: existingAula.slot
+      });
     }
 
     const sheet = getSheet_();
@@ -176,6 +184,7 @@ function getCurrentData_() {
       colegio:   String(row[3] || ''),
       jornada:   String(row[4] || ''),
       clase:     String(row[5] || ''),
+      sede:      String(row[6] || ''),
       // Note: contact + phone are intentionally NOT exposed via the public GET.
     });
   }
@@ -192,10 +201,69 @@ function hasExisting_(slot, school) {
   return false;
 }
 
+// Returns { slot } if this aula (colegio + sede + jornada + clase) already has
+// any reservation anywhere in the calendar, or null otherwise.
+// Each aula is allowed exactly one reservation in the whole window.
+function findAulaReservation_(school, sede, jornada, clase) {
+  const data = getCurrentData_();
+  const claseStr = String(clase || '');
+  const slotKeys = Object.keys(data.details);
+  for (let i = 0; i < slotKeys.length; i++) {
+    const list = data.details[slotKeys[i]];
+    for (let j = 0; j < list.length; j++) {
+      const r = list[j];
+      if (r.colegio === school &&
+          r.sede === sede &&
+          r.jornada === jornada &&
+          r.clase === claseStr) {
+        return { slot: slotKeys[i] };
+      }
+    }
+  }
+  return null;
+}
+
 function jsonOut_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---------- Aula → semana assignments ----------
+// Reads the "Asignaciones" tab and returns a map { "Colegio|Sede|Jornada|Clase": "YYYY-MM-DD" }
+// where the date is the Monday of the assigned week. Tab schema (row 1 = headers):
+//   A: Colegio   B: Sede   C: Jornada   D: Clase   E: Semana (YYYY-MM-DD, lunes)
+// Missing tab, empty tab, or invalid rows are silently ignored — the frontend
+// simply won't show an assignment banner for aulas not listed here.
+const ASSIGNMENTS_HEADER = ['Colegio', 'Sede', 'Jornada', 'Clase', 'Semana'];
+
+function getAssignments_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(ASSIGNMENTS_SHEET_NAME);
+  if (!sheet) return {};
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return {};
+  const values = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+  const out = {};
+  for (let i = 0; i < values.length; i++) {
+    const row = values[i];
+    const colegio = String(row[0] || '').trim();
+    const sede    = String(row[1] || '').trim();
+    const jornada = String(row[2] || '').trim();
+    const clase   = String(row[3] || '').trim();
+    let semana    = row[4];
+    if (!colegio || !sede || !jornada || !clase || !semana) continue;
+    // Normalize semana to "YYYY-MM-DD".
+    if (Object.prototype.toString.call(semana) === '[object Date]') {
+      semana = Utilities.formatDate(semana, TIMEZONE, 'yyyy-MM-dd');
+    } else {
+      semana = String(semana).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(semana)) continue;
+    }
+    const key = colegio + '|' + sede + '|' + jornada + '|' + clase;
+    out[key] = semana;
+  }
+  return out;
 }
 
 // ---------- Conflict-aware capacity ----------
@@ -283,5 +351,23 @@ function setup() {
   sheet.setColumnWidth(9, 220); // Contacto
   sheet.setColumnWidth(10, 130); // Teléfono
 
-  Logger.log('Setup complete. Sheet "%s" is ready.', SHEET_NAME);
+  // Asignaciones tab: maps each aula to its assigned week (Monday). Optional.
+  let asignaciones = ss.getSheetByName(ASSIGNMENTS_SHEET_NAME);
+  if (!asignaciones) {
+    asignaciones = ss.insertSheet(ASSIGNMENTS_SHEET_NAME);
+  }
+  asignaciones.getRange(1, 1, 1, ASSIGNMENTS_HEADER.length)
+    .setValues([ASSIGNMENTS_HEADER])
+    .setFontWeight('bold')
+    .setBackground('#f3f4f6');
+  asignaciones.setFrozenRows(1);
+  asignaciones.getRange('D:D').setNumberFormat('@'); // Clase as plain text
+  asignaciones.getRange('E:E').setNumberFormat('yyyy-mm-dd'); // Semana
+  asignaciones.setColumnWidth(1, 280); // Colegio
+  asignaciones.setColumnWidth(2, 200); // Sede
+  asignaciones.setColumnWidth(3, 90);  // Jornada
+  asignaciones.setColumnWidth(4, 70);  // Clase
+  asignaciones.setColumnWidth(5, 120); // Semana
+
+  Logger.log('Setup complete. Sheets "%s" and "%s" are ready.', SHEET_NAME, ASSIGNMENTS_SHEET_NAME);
 }
