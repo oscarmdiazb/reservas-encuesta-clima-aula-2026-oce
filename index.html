@@ -686,6 +686,120 @@
   .logistics-text { flex: 1; }
   .logistics-text strong { color: var(--primary); font-weight: 800; }
 
+  /* Reservations table (below calendar) */
+  .reservations-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    margin-top: 24px;
+    overflow: hidden;
+  }
+
+  .reservations-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .reservations-header h2 {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0;
+  }
+
+  .reservations-summary {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .reservations-body {
+    max-height: 520px;
+    overflow-y: auto;
+    overflow-x: auto;
+  }
+
+  .reservations-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .reservations-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .reservations-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    z-index: 1;
+  }
+
+  .reservations-table tbody td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  .reservations-table tbody tr:last-child td { border-bottom: none; }
+
+  .reservations-table tbody tr.dup {
+    background: #fef3c7;
+  }
+
+  .reservations-table tbody tr.dup td:first-child {
+    border-left: 3px solid #f59e0b;
+  }
+
+  .reservations-table .col-icon {
+    width: 28px;
+    text-align: center;
+    font-size: 14px;
+  }
+
+  .reservations-table .col-icon[title]:hover { cursor: help; }
+
+  .reservations-table .col-colegio {
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .reservations-table .col-aula {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 12px;
+  }
+
+  .reservations-table .col-fecha {
+    white-space: nowrap;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .reservations-table .col-hora {
+    white-space: nowrap;
+    color: var(--primary);
+    font-weight: 700;
+  }
+
   @media (max-width: 640px) {
     .container { padding: 20px 12px 40px; }
     h1 { font-size: 22px; }
@@ -694,6 +808,8 @@
     .legend { padding: 10px 14px; gap: 10px; }
     .week-label { font-size: 14px; }
     .nav-btn { padding: 6px 10px; font-size: 12px; }
+    .reservations-table thead th,
+    .reservations-table tbody td { padding: 8px 10px; font-size: 12px; }
   }
 </style>
 </head>
@@ -750,6 +866,17 @@
       <div class="legend-item" style="margin-left:auto"><span style="background:rgba(255,255,255,0.55);border:1px solid rgba(0,0,0,0.05);border-radius:4px;padding:2px 6px;font-size:10.5px;font-weight:700;color:#1f2937">Colegio · Aula</span> reserva existente</div>
     </div>
   </div>
+
+  <!-- Reservations table -->
+  <section class="reservations-card">
+    <div class="reservations-header">
+      <h2>Reservas actuales</h2>
+      <div class="reservations-summary" id="reservationsSummary">—</div>
+    </div>
+    <div class="reservations-body" id="reservationsBody">
+      <div class="reservations-empty">Cargando…</div>
+    </div>
+  </section>
 </div>
 
 <!-- Booking modal -->
@@ -1582,6 +1709,98 @@ async function submitBooking() {
   }
 }
 
+// ----- Reservations table (below calendar) -----
+
+// Flattens bookingDetails into a sorted array, counts per-colegio, and renders
+// the "Reservas actuales" table. Colegios with more than one reservation
+// (across any of their aulas) are flagged with ⚠️ and a tinted row.
+function renderReservationsTable() {
+  const body = document.getElementById('reservationsBody');
+  const summary = document.getElementById('reservationsSummary');
+  if (!body) return;
+
+  // Flatten
+  const rows = [];
+  const colegioCount = {};
+  for (const slotK of Object.keys(bookingDetails)) {
+    const list = bookingDetails[slotK] || [];
+    for (const r of list) {
+      const colegio = r.colegio || '';
+      colegioCount[colegio] = (colegioCount[colegio] || 0) + 1;
+      const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(slotK);
+      const dateObj = m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+      rows.push({
+        slotK,
+        dateObj,
+        hour: m ? +m[4] : 0,
+        minute: m ? +m[5] : 0,
+        colegio,
+        sede: r.sede || '',
+        jornada: r.jornada || '',
+        clase: r.clase || '',
+        localidad: r.localidad || ''
+      });
+    }
+  }
+
+  // Sort: by colegio (case-insensitive), then by date+time
+  rows.sort((a, b) => {
+    const ca = (a.colegio || '').toLowerCase();
+    const cb = (b.colegio || '').toLowerCase();
+    if (ca !== cb) return ca < cb ? -1 : 1;
+    return a.slotK < b.slotK ? -1 : a.slotK > b.slotK ? 1 : 0;
+  });
+
+  const totalRes = rows.length;
+  const totalColegios = Object.keys(colegioCount).length;
+  const dupCount = Object.values(colegioCount).filter(n => n > 1).length;
+
+  if (!totalRes) {
+    body.innerHTML = '<div class="reservations-empty">Aún no hay reservas.</div>';
+    summary.textContent = '0 reservas';
+    return;
+  }
+
+  summary.textContent = `${totalRes} reserva${totalRes === 1 ? '' : 's'} · ${totalColegios} colegio${totalColegios === 1 ? '' : 's'}` +
+    (dupCount ? ` · ${dupCount} con más de una reserva` : '');
+
+  let html = '<table class="reservations-table"><thead><tr>' +
+    '<th class="col-icon" aria-label="Alertas"></th>' +
+    '<th>Colegio · Aula</th>' +
+    '<th>Localidad</th>' +
+    '<th>Fecha</th>' +
+    '<th>Hora</th>' +
+    '</tr></thead><tbody>';
+
+  for (const r of rows) {
+    const isDup = colegioCount[r.colegio] > 1;
+    const icon = isDup
+      ? `<span title="Este colegio tiene ${colegioCount[r.colegio]} reservas">⚠️</span>`
+      : '';
+    const dateStr = r.dateObj
+      ? `${DAY_NAMES[r.dateObj.getDay()].slice(0,3)}. ${r.dateObj.getDate()} ${MONTH_ABBR[r.dateObj.getMonth()]}`
+      : r.slotK;
+    const timeStr = `${formatTime(r.hour, r.minute)} – ${endTime(r.hour, r.minute)}`;
+    const aulaLabel = `${r.jornada || ''}${r.jornada && r.clase ? ' · ' : ''}Aula ${r.clase || ''}`;
+    html += `<tr${isDup ? ' class="dup"' : ''}>` +
+      `<td class="col-icon">${icon}</td>` +
+      `<td><div class="col-colegio">${escapeHtml_(shortColegio(r.colegio))}</div>` +
+      `<div class="col-aula">${escapeHtml_(aulaLabel)}</div></td>` +
+      `<td>${escapeHtml_(titleCase(r.localidad))}</td>` +
+      `<td class="col-fecha">${escapeHtml_(dateStr)}</td>` +
+      `<td class="col-hora">${escapeHtml_(timeStr)}</td>` +
+      `</tr>`;
+  }
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+function escapeHtml_(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // ----- Refresh -----
 async function refresh() {
   const body = document.getElementById('calendarBody');
@@ -1592,6 +1811,7 @@ async function refresh() {
     bookingDetails = (data && data.details) || {};
     assignments = (data && data.assignments) || {};
     renderCalendar();
+    renderReservationsTable();
   } catch (err) {
     body.innerHTML = `
       <div class="status" style="color:var(--error)">

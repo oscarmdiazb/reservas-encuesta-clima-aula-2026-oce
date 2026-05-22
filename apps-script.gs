@@ -174,7 +174,10 @@ function getCurrentData_() {
     if (Object.prototype.toString.call(slotRaw) === '[object Date]') {
       key = Utilities.formatDate(slotRaw, TIMEZONE, 'yyyy-MM-dd HH:mm');
     } else {
-      key = String(slotRaw).trim();
+      // Normalize so "2026-08-11 6:30" → "2026-08-11 06:30". Otherwise the
+      // frontend (which always pads) won't match the count back to a slot
+      // and the calendar will show full availability for a booked slot.
+      key = normalizeSlotKey_(String(slotRaw).trim());
     }
     if (!key) continue;
     counts[key] = (counts[key] || 0) + 1;
@@ -227,6 +230,16 @@ function jsonOut_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Accepts loosely-formatted slot strings ("2026-08-11 6:30", "2026-8-1 6:5", etc.)
+// and returns the canonical "YYYY-MM-DD HH:MM". Returns the input as-is if it
+// doesn't look like a date-time at all (so we don't silently corrupt weird data).
+function normalizeSlotKey_(s) {
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{1,2})$/.exec(s);
+  if (!m) return s;
+  function pad(n) { return ('0' + n).slice(-2); }
+  return m[1] + '-' + pad(m[2]) + '-' + pad(m[3]) + ' ' + pad(m[4]) + ':' + pad(m[5]);
 }
 
 // ---------- Aula → semana assignments ----------
