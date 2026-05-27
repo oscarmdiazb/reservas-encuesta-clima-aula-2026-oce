@@ -747,6 +747,125 @@
   .how-text strong { color: var(--text); font-weight: 800; }
   .how-text em { font-style: normal; color: var(--primary); font-weight: 700; }
 
+  /* ----- Confirmation modal (post-reservation) ----- */
+  .confirm-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    padding: 16px;
+    animation: cm-fade 0.2s ease-out;
+  }
+  .confirm-modal-backdrop[hidden] { display: none !important; }
+
+  @keyframes cm-fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes cm-pop  { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .confirm-modal {
+    background: var(--card);
+    border-radius: 14px;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 25px 60px -10px rgba(0,0,0,0.30);
+    padding: 28px 24px 22px;
+    text-align: center;
+    max-height: 92vh;
+    overflow-y: auto;
+    animation: cm-pop 0.22s ease-out;
+  }
+  .confirm-modal-check {
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    background: #d1fae5;
+    color: #065f46;
+    font-size: 32px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 14px;
+  }
+  .confirm-modal-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0 0 18px;
+    letter-spacing: -0.01em;
+  }
+
+  .confirm-modal-details {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    text-align: left;
+  }
+  .cm-row {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    padding: 5px 0;
+    font-size: 14px;
+  }
+  .cm-row + .cm-row { border-top: 1px dashed var(--border); }
+  .cm-label {
+    color: var(--muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 10.5px;
+    min-width: 46px;
+  }
+  .cm-val {
+    flex: 1;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: capitalize;
+  }
+  .cm-val-aula { font-weight: 700; text-transform: none; line-height: 1.3; font-size: 13px; }
+
+  .confirm-modal-reminder {
+    display: flex;
+    gap: 12px;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 18px;
+    text-align: left;
+    align-items: center;
+  }
+  .cm-reminder-icon { font-size: 24px; flex-shrink: 0; }
+  .cm-reminder-body { flex: 1; }
+  .cm-reminder-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: #78350f;
+    line-height: 1.35;
+    margin-bottom: 8px;
+  }
+  .cm-reminder-btn {
+    display: inline-block;
+    background: #f59e0b;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .cm-reminder-btn:hover { background: #d97706; }
+
+  .confirm-modal-close {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+  }
+
   /* Inline download link inside step 5 */
   .inline-download {
     display: inline-block;
@@ -1255,9 +1374,6 @@
         <div class="how-text">
           <strong>Recuerda enviar el consentimiento informado a los acudientes.</strong>
           <a href="consentimiento.pdf?v=1" download="consentimiento-encuesta-clima-aula.pdf" class="inline-download">Descárgalo aquí ⬇</a>
-          <div class="consent-why">
-            Es importante que los acudientes tengan la oportunidad de decir que no, en caso de que no quieran que sus hijos sean encuestados.
-          </div>
         </div>
       </li>
     </ol>
@@ -1449,6 +1565,39 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Confirmation modal: appears after a successful booking -->
+<div class="confirm-modal-backdrop" id="confirmModal" hidden role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+  <div class="confirm-modal">
+    <div class="confirm-modal-check" aria-hidden="true">✓</div>
+    <h2 class="confirm-modal-title" id="confirmModalTitle">¡Tu cita está confirmada!</h2>
+
+    <div class="confirm-modal-details">
+      <div class="cm-row">
+        <span class="cm-label">Día</span>
+        <span class="cm-val" id="confirmModalDay">—</span>
+      </div>
+      <div class="cm-row">
+        <span class="cm-label">Hora</span>
+        <span class="cm-val" id="confirmModalTime">—</span>
+      </div>
+      <div class="cm-row">
+        <span class="cm-label">Aula</span>
+        <span class="cm-val cm-val-aula" id="confirmModalAula">—</span>
+      </div>
+    </div>
+
+    <div class="confirm-modal-reminder">
+      <div class="cm-reminder-icon" aria-hidden="true">📄</div>
+      <div class="cm-reminder-body">
+        <div class="cm-reminder-title">No olvides enviar el consentimiento a los acudientes</div>
+        <a href="consentimiento.pdf?v=1" download="consentimiento-encuesta-clima-aula.pdf" class="cm-reminder-btn">⬇ Descargar PDF</a>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn-primary confirm-modal-close" id="confirmModalCloseBtn">Listo</button>
+  </div>
+</div>
 
 <script>
 // =====================================================================
@@ -2298,6 +2447,36 @@ function showToast(msg, type = '') {
   showToast._t = setTimeout(() => t.classList.remove('show'), 5500);
 }
 
+// ----- Confirmation modal -----
+function showConfirmModal(date, hour, minute, sel) {
+  document.getElementById('confirmModalDay').textContent  = formatDateLong(date);
+  document.getElementById('confirmModalTime').textContent = `${formatTime(hour, minute)} – ${endTime(hour, minute)}`;
+  const aulaParts = [sel && sel.colegio];
+  const meta = [];
+  if (sel && sel.sede)    meta.push(`Sede ${sel.sede}`);
+  if (sel && sel.jornada) meta.push(`Jornada ${titleCase(sel.jornada)}`);
+  if (sel && sel.clase)   meta.push(`Aula ${sel.clase}`);
+  if (meta.length) aulaParts.push(meta.join(' · '));
+  document.getElementById('confirmModalAula').innerHTML =
+    aulaParts.filter(Boolean).map(s => `<div>${escapeHtml_(s)}</div>`).join('');
+  document.getElementById('confirmModal').hidden = false;
+  // Focus the close button for keyboard accessibility
+  setTimeout(() => document.getElementById('confirmModalCloseBtn').focus(), 60);
+}
+
+function closeConfirmModalAndReset() {
+  document.getElementById('confirmModal').hidden = true;
+  // Now reset the form / page state
+  document.getElementById('contactInput').value = '';
+  document.getElementById('phoneInput').value = '';
+  document.getElementById('localidadSelect').value = '';
+  document.getElementById('schoolSelect').innerHTML = '<option value="">Primero selecciona la localidad</option>';
+  document.getElementById('schoolSelect').disabled = true;
+  selectedSlot = null;
+  showStep('identify');
+  document.getElementById('step1Card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 async function submitBooking() {
   const sel = getSelectedColegio();
   const contact = document.getElementById('contactInput').value.trim();
@@ -2365,17 +2544,9 @@ async function submitBooking() {
       phone
     });
     if (res && res.ok) {
-      const dateStr = formatDateLong(selectedSlot.date);
-      const timeStr = formatTime(selectedSlot.hour, selectedSlot.minute);
-      // Reset the form, scroll to step 1, show toast.
-      document.getElementById('contactInput').value = '';
-      document.getElementById('phoneInput').value = '';
-      document.getElementById('localidadSelect').value = '';
-      document.getElementById('schoolSelect').innerHTML = '<option value="">Primero selecciona la localidad</option>';
-      document.getElementById('schoolSelect').disabled = true;
-      showStep('identify');
-      document.getElementById('step1Card').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      showToast(`Reserva confirmada para ${dateStr} a las ${timeStr}`, 'success');
+      // Open the confirmation modal with the booking summary + consent reminder.
+      // Form is reset only when the user clicks "Listo" (see modal close handler in init).
+      showConfirmModal(selectedSlot.date, selectedSlot.hour, selectedSlot.minute, sel);
       await refresh();
     } else if (res && res.error === 'slot_full') {
       // Refresh so chips reflect the new state, then push the user back
@@ -2637,6 +2808,18 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('phoneInput').addEventListener('input', (e) => {
     e.target.value = e.target.value.replace(/[^0-9]/g, '');
+  });
+
+  // --- Confirmation modal ---
+  document.getElementById('confirmModalCloseBtn').addEventListener('click', closeConfirmModalAndReset);
+  document.getElementById('confirmModal').addEventListener('click', (e) => {
+    // Close when clicking backdrop (outside the modal box)
+    if (e.target.id === 'confirmModal') closeConfirmModalAndReset();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !document.getElementById('confirmModal').hidden) {
+      closeConfirmModalAndReset();
+    }
   });
 });
 </script>
