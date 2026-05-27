@@ -102,7 +102,7 @@ function doPost(e) {
     // Each aula (colegio + sede + jornada + clase) is allowed exactly one
     // reservation in the whole calendar. Reject any second attempt and return
     // the existing slot so the frontend can tell the user when they booked.
-    const existingAula = findAulaReservation_(school, sede, jornada, grade);
+    const existingAula = findAulaReservation_(dane, jornada, grade);
     if (existingAula) {
       return jsonOut_({
         ok: false,
@@ -188,6 +188,7 @@ function getCurrentData_() {
       jornada:   String(row[4] || ''),
       clase:     String(row[5] || ''),
       sede:      String(row[6] || ''),
+      dane:      String(row[7] || ''),  // sede DANE (14-digit) — used as part of aulaKey
       // Note: contact + phone are intentionally NOT exposed via the public GET.
     });
   }
@@ -204,20 +205,24 @@ function hasExisting_(slot, school) {
   return false;
 }
 
-// Returns { slot } if this aula (colegio + sede + jornada + clase) already has
-// any reservation anywhere in the calendar, or null otherwise.
+// Returns { slot } if this aula (identified by DANE + jornada + clase) already
+// has any reservation anywhere in the calendar, or null otherwise.
 // Each aula is allowed exactly one reservation in the whole window.
-function findAulaReservation_(school, sede, jornada, clase) {
+// Uses DANE (sede ID) as the primary key — immune to spelling drift in colegio
+// or sede free-text fields.
+function findAulaReservation_(dane, jornada, clase) {
   const data = getCurrentData_();
-  const claseStr = String(clase || '');
+  const daneStr  = String(dane || '').trim();
+  const jorStr   = String(jornada || '').trim();
+  const claseStr = String(clase || '').trim();
+  if (!daneStr) return null;
   const slotKeys = Object.keys(data.details);
   for (let i = 0; i < slotKeys.length; i++) {
     const list = data.details[slotKeys[i]];
     for (let j = 0; j < list.length; j++) {
       const r = list[j];
-      if (r.colegio === school &&
-          r.sede === sede &&
-          r.jornada === jornada &&
+      if (r.dane === daneStr &&
+          r.jornada === jorStr &&
           r.clase === claseStr) {
         return { slot: slotKeys[i] };
       }
@@ -244,12 +249,18 @@ function normalizeSlotKey_(s) {
 
 // ---------- Aula → fecha assignments ----------
 // Reads the "Asignaciones" tab and returns a map
-//   { "Colegio|Sede|Jornada|Clase": "YYYY-MM-DD" }
-// where the date is the SPECIFIC DAY (not the Monday of the week). Tab schema:
+//   { "DANE|Jornada|Clase": "YYYY-MM-DD" }
+// where the date is the SPECIFIC DAY (not the Monday of the week).
+// Aula identity uses the 14-digit sede DANE (column G) — robust against
+// spelling drift in the colegio/sede free-text columns.
+// Tab schema:
 //   A: Colegio   B: Sede   C: Jornada   D: Clase   E: Fecha (YYYY-MM-DD)
-// Missing tab, empty tab, or invalid rows are silently ignored — the frontend
-// simply won't show an assignment banner for aulas not listed here.
-const ASSIGNMENTS_HEADER = ['Colegio', 'Sede', 'Jornada', 'Clase', 'Fecha'];
+//   F: Pair_ID   G: DANE    H: Brazo  (T or C)   ← admin-only, never exposed
+// getAssignments_ reads columns C, D, G to build the key.
+// Missing tab, empty tab, or rows missing any of (DANE, Jornada, Clase, Fecha)
+// are silently ignored.
+const ASSIGNMENTS_HEADER = ['Colegio', 'Sede', 'Jornada', 'Clase', 'Fecha',
+                             'Pair_ID', 'DANE', 'Brazo'];
 
 function getAssignments_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -257,16 +268,16 @@ function getAssignments_() {
   if (!sheet) return {};
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return {};
-  const values = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+  // Read 8 columns so we have access to DANE in column G (index 6).
+  const values = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
   const out = {};
   for (let i = 0; i < values.length; i++) {
     const row = values[i];
-    const colegio = String(row[0] || '').trim();
-    const sede    = String(row[1] || '').trim();
     const jornada = String(row[2] || '').trim();
     const clase   = String(row[3] || '').trim();
     let fecha     = row[4];
-    if (!colegio || !sede || !jornada || !clase || !fecha) continue;
+    const dane    = String(row[6] || '').trim().replace(/\.0+$/, '');
+    if (!dane || !jornada || !clase || !fecha) continue;
     // Normalize fecha to "YYYY-MM-DD".
     if (Object.prototype.toString.call(fecha) === '[object Date]') {
       fecha = Utilities.formatDate(fecha, TIMEZONE, 'yyyy-MM-dd');
@@ -274,7 +285,7 @@ function getAssignments_() {
       fecha = String(fecha).trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) continue;
     }
-    const key = colegio + '|' + sede + '|' + jornada + '|' + clase;
+    const key = dane + '|' + jornada + '|' + clase;
     out[key] = fecha;
   }
   return out;
@@ -376,12 +387,20 @@ function setup() {
     .setBackground('#f3f4f6');
   asignaciones.setFrozenRows(1);
   asignaciones.getRange('D:D').setNumberFormat('@'); // Clase as plain text
-  asignaciones.getRange('E:E').setNumberFormat('yyyy-mm-dd'); // Semana
+  asignaciones.getRange('E:E').setNumberFormat('yyyy-mm-dd'); // Fecha
+  asignaciones.getRange('F:F').setNumberFormat('@'); // Pair_ID as plain text
+  asignaciones.getRange('G:G').setNumberFormat('@'); // DANE as plain text
+  asignaciones.getRange('H:H').setNumberFormat('@'); // Brazo (T/C) as plain text
   asignaciones.setColumnWidth(1, 280); // Colegio
   asignaciones.setColumnWidth(2, 200); // Sede
   asignaciones.setColumnWidth(3, 90);  // Jornada
   asignaciones.setColumnWidth(4, 70);  // Clase
-  asignaciones.setColumnWidth(5, 120); // Semana
+  asignaciones.setColumnWidth(5, 120); // Fecha
+  asignaciones.setColumnWidth(6, 120); // Pair_ID  (admin)
+  asignaciones.setColumnWidth(7, 140); // DANE     (admin)
+  asignaciones.setColumnWidth(8, 70);  // Brazo    (admin)
+  // Visually mark the admin columns with a subtle background
+  asignaciones.getRange('F1:H1').setBackground('#fef3c7');
 
   Logger.log('Setup complete. Sheets "%s" and "%s" are ready.', SHEET_NAME, ASSIGNMENTS_SHEET_NAME);
 }

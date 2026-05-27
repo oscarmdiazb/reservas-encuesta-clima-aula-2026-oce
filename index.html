@@ -1510,7 +1510,7 @@ const SCHOOLS_BY_LOCALIDAD = {
     { colegio: "COLEGIO JUANA ESCOBAR (IED)", sede: "JUANA ESCOBAR", jornada: "MAÑANA", clase: "903", grado: "9", dane: "11100101233501" },
     { colegio: "COLEGIO LA BELLEZA LOS LIBERTADORES (IED)", sede: "LA BELLEZA", jornada: "TARDE", clase: "9903", grado: "99", dane: "11100101600401" },
     { colegio: "COLEGIO LA VICTORIA (IED)", sede: "LA VICTORIA", jornada: "MAÑANA", clase: "801", grado: "8", dane: "11100101836801" },
-    { colegio: "COLEGIO MORALBA SUR ORIENTAL (IED)", sede: "MORALBA SURORIENTAL", jornada: "ÚNICA", clase: "802", grado: "8", dane: "11100102468601" },
+    { colegio: "COLEGIO MORALBA SURORIENTAL (IED)", sede: "MORALBA SURORIENTAL", jornada: "ÚNICA", clase: "802", grado: "8", dane: "11100102468601" },
     { colegio: "COLEGIO NUEVA ROMA (IED)", sede: "COLEGIO NUEVA ROMA (IED) - SEDE PRINCIPAL", jornada: "ÚNICA", clase: "802", grado: "8", dane: "11100109881701" },
     { colegio: "COLEGIO REPUBLICA DEL ECUADOR (IED)", sede: "REPUBLICA DEL ECUADOR", jornada: "ÚNICA", clase: "801", grado: "8", dane: "11100103243301" }
   ],
@@ -2185,17 +2185,18 @@ function getSelectedColegio() {
 }
 
 // Scans the public bookingDetails map for an existing reservation for this
-// exact aula (colegio + sede + jornada + clase). Returns the slot key
-// "YYYY-MM-DD HH:mm" of the existing reservation, or null.
+// exact aula. Aula identity = sede DANE (14-digit) + jornada + clase — robust
+// against spelling drift in the colegio/sede free-text fields.
 function findExistingReservationForAula(sel) {
-  if (!sel) return null;
-  const claseStr = String(sel.clase || '');
+  if (!sel || !sel.dane) return null;
+  const daneStr  = String(sel.dane).trim();
+  const jorStr   = String(sel.jornada || '').trim();
+  const claseStr = String(sel.clase || '').trim();
   for (const slotK of Object.keys(bookingDetails)) {
     const list = bookingDetails[slotK] || [];
     for (const r of list) {
-      if (r.colegio === sel.colegio &&
-          r.sede === sel.sede &&
-          r.jornada === sel.jornada &&
+      if (r.dane === daneStr &&
+          r.jornada === jorStr &&
           r.clase === claseStr) {
         return slotK;
       }
@@ -2219,9 +2220,13 @@ function humanizeSlotKey(slotK) {
 // ----- Aula → fecha asignada -----
 
 // Build the lookup key used by the assignments map.
+// Uses the sede DANE (14-digit) as the primary anchor — robust against
+// spelling/spacing drift in the colegio/sede free-text columns.
 function aulaKeyFor(sel) {
-  if (!sel) return '';
-  return [sel.colegio, sel.sede, sel.jornada, String(sel.clase || '')].join('|');
+  if (!sel || !sel.dane) return '';
+  return [String(sel.dane).trim(),
+          String(sel.jornada || '').trim(),
+          String(sel.clase || '').trim()].join('|');
 }
 
 // Returns the SPECIFIC DAY (Date object) assigned to this aula, or null if
@@ -2396,7 +2401,8 @@ function renderReservationsTable() {
         sede: r.sede || '',
         jornada: r.jornada || '',
         clase: r.clase || '',
-        localidad: r.localidad || ''
+        localidad: r.localidad || '',
+        dane: r.dane || ''
       });
     }
   }
@@ -2422,8 +2428,12 @@ function renderReservationsTable() {
   // Per-row discrepancy classification (against the Asignaciones map).
   // Levels: 'match' (same day) | 'soft' (same week, different day) |
   //         'hard' (different week) | 'none' (no assignment for this aula)
+  // Uses DANE-based key (same as aulaKeyFor) so it matches the backend.
   function classifyDiscrepancy(row) {
-    const key = [row.colegio, row.sede, row.jornada, String(row.clase || '')].join('|');
+    if (!row.dane) return { level: 'none', assignedDate: null, deltaDays: null };
+    const key = [String(row.dane).trim(),
+                 String(row.jornada || '').trim(),
+                 String(row.clase || '').trim()].join('|');
     const assignedStr = assignments[key];
     if (!assignedStr || !row.dateObj) return { level: 'none', assignedDate: null, deltaDays: null };
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(assignedStr);
