@@ -825,13 +825,31 @@
 
   .reservations-table tbody tr:last-child td { border-bottom: none; }
 
-  .reservations-table tbody tr.dup {
-    background: #fef3c7;
-  }
+  /* Discrepancy row colors (admin view) */
+  .reservations-table tbody tr.disc-match    { /* no background — normal */ }
+  .reservations-table tbody tr.disc-soft     { background: #fef3c7; }       /* yellow: same week, diff day */
+  .reservations-table tbody tr.disc-hard     { background: #fee2e2; }       /* red:    different week */
+  .reservations-table tbody tr.disc-none     { background: #f9fafb; }       /* gray:   no assignment in tab */
+  .reservations-table tbody tr.disc-soft td:first-child  { border-left: 3px solid #f59e0b; }
+  .reservations-table tbody tr.disc-hard td:first-child  { border-left: 3px solid #dc2626; }
 
+  /* Duplicates still get a side accent (additive to the discrepancy row color) */
   .reservations-table tbody tr.dup td:first-child {
     border-left: 3px solid #f59e0b;
   }
+
+  .reservations-table .col-delta {
+    text-align: center;
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .reservations-table .delta-zero { color: #065f46; }
+  .reservations-table tr.disc-soft .col-delta { color: #92400e; }
+  .reservations-table tr.disc-hard .col-delta { color: #9a3412; font-weight: 800; }
+  .reservations-table .col-fecha-sel { font-weight: 700; }
+  .reservations-table .muted-cell { color: var(--muted); font-style: italic; }
 
   .reservations-table .col-icon {
     width: 28px;
@@ -2355,33 +2373,76 @@ function renderReservationsTable() {
     return;
   }
 
-  summary.textContent = `${totalRes} reserva${totalRes === 1 ? '' : 's'} · ${totalColegios} colegio${totalColegios === 1 ? '' : 's'}` +
-    (dupCount ? ` · ${dupCount} con más de una reserva` : '');
+  // Per-row discrepancy classification (against the Asignaciones map).
+  // Levels: 'match' (same day) | 'soft' (same week, different day) |
+  //         'hard' (different week) | 'none' (no assignment for this aula)
+  function classifyDiscrepancy(row) {
+    const key = [row.colegio, row.sede, row.jornada, String(row.clase || '')].join('|');
+    const assignedStr = assignments[key];
+    if (!assignedStr || !row.dateObj) return { level: 'none', assignedDate: null, deltaDays: null };
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(assignedStr);
+    if (!m) return { level: 'none', assignedDate: null, deltaDays: null };
+    const assignedDate = new Date(+m[1], +m[2] - 1, +m[3]);
+    const deltaDays = Math.round((row.dateObj.getTime() - assignedDate.getTime()) / 86400000);
+    if (deltaDays === 0) return { level: 'match', assignedDate, deltaDays };
+    const sameWeek = startOfWeekMonday(assignedDate).getTime() === startOfWeekMonday(row.dateObj).getTime();
+    return { level: sameWeek ? 'soft' : 'hard', assignedDate, deltaDays };
+  }
+
+  // Per-row classification + summary counters
+  const summaryCounters = { match: 0, soft: 0, hard: 0, none: 0 };
+  for (const r of rows) {
+    const c = classifyDiscrepancy(r);
+    r._disc = c;
+    summaryCounters[c.level]++;
+  }
+
+  const sumParts = [`${totalRes} reserva${totalRes === 1 ? '' : 's'}`];
+  if (summaryCounters.match) sumParts.push(`<span style="color:#065f46">✓ ${summaryCounters.match} en su fecha</span>`);
+  if (summaryCounters.soft)  sumParts.push(`<span style="color:#92400e">⚠ ${summaryCounters.soft} otro día (misma semana)</span>`);
+  if (summaryCounters.hard)  sumParts.push(`<span style="color:#9a3412">⚠⚠ ${summaryCounters.hard} otra semana</span>`);
+  if (summaryCounters.none)  sumParts.push(`<span style="color:#6b7280">${summaryCounters.none} sin asignar</span>`);
+  if (dupCount) sumParts.push(`${dupCount} colegio${dupCount===1?'':'s'} con +1 reserva`);
+  summary.innerHTML = sumParts.join(' · ');
+
+  function shortDate(d) {
+    if (!d) return '';
+    return `${DAY_NAMES[d.getDay()].slice(0,3)}. ${d.getDate()} ${MONTH_ABBR[d.getMonth()]}`;
+  }
 
   let html = '<table class="reservations-table"><thead><tr>' +
     '<th class="col-icon" aria-label="Alertas"></th>' +
     '<th>Colegio · Aula</th>' +
     '<th>Localidad</th>' +
-    '<th>Fecha</th>' +
+    '<th>Fecha propuesta</th>' +
+    '<th>Fecha seleccionada</th>' +
+    '<th class="col-delta" title="Diferencia en días">Δ</th>' +
     '<th>Hora</th>' +
     '</tr></thead><tbody>';
 
   for (const r of rows) {
     const isDup = colegioCount[r.colegio] > 1;
-    const icon = isDup
-      ? `<span title="Este colegio tiene ${colegioCount[r.colegio]} reservas">⚠️</span>`
-      : '';
-    const dateStr = r.dateObj
-      ? `${DAY_NAMES[r.dateObj.getDay()].slice(0,3)}. ${r.dateObj.getDate()} ${MONTH_ABBR[r.dateObj.getMonth()]}`
-      : r.slotK;
+    const icons = [];
+    if (r._disc.level === 'hard') icons.push('⚠️⚠️');
+    else if (r._disc.level === 'soft') icons.push('⚠️');
+    if (isDup) icons.push(`<span title="Este colegio tiene ${colegioCount[r.colegio]} reservas">×${colegioCount[r.colegio]}</span>`);
+    const reservedStr = shortDate(r.dateObj);
+    const assignedStr = r._disc.assignedDate ? shortDate(r._disc.assignedDate) : '<span class="muted-cell">—</span>';
+    const deltaStr = r._disc.deltaDays == null ? '—'
+      : r._disc.deltaDays === 0 ? '<span class="delta-zero">0</span>'
+      : (r._disc.deltaDays > 0 ? `+${r._disc.deltaDays}d` : `${r._disc.deltaDays}d`);
     const timeStr = `${formatTime(r.hour, r.minute)} – ${endTime(r.hour, r.minute)}`;
     const aulaLabel = `${r.jornada || ''}${r.jornada && r.clase ? ' · ' : ''}Aula ${r.clase || ''}`;
-    html += `<tr${isDup ? ' class="dup"' : ''}>` +
-      `<td class="col-icon">${icon}</td>` +
+    const rowCls = ['disc-' + r._disc.level];
+    if (isDup) rowCls.push('dup');
+    html += `<tr class="${rowCls.join(' ')}">` +
+      `<td class="col-icon">${icons.join(' ')}</td>` +
       `<td><div class="col-colegio">${escapeHtml_(shortColegio(r.colegio))}</div>` +
       `<div class="col-aula">${escapeHtml_(aulaLabel)}</div></td>` +
       `<td>${escapeHtml_(titleCase(r.localidad))}</td>` +
-      `<td class="col-fecha">${escapeHtml_(dateStr)}</td>` +
+      `<td class="col-fecha">${assignedStr}</td>` +
+      `<td class="col-fecha col-fecha-sel">${escapeHtml_(reservedStr)}</td>` +
+      `<td class="col-delta">${deltaStr}</td>` +
       `<td class="col-hora">${escapeHtml_(timeStr)}</td>` +
       `</tr>`;
   }
