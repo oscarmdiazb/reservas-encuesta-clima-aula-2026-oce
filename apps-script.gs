@@ -242,13 +242,14 @@ function normalizeSlotKey_(s) {
   return m[1] + '-' + pad(m[2]) + '-' + pad(m[3]) + ' ' + pad(m[4]) + ':' + pad(m[5]);
 }
 
-// ---------- Aula → semana assignments ----------
-// Reads the "Asignaciones" tab and returns a map { "Colegio|Sede|Jornada|Clase": "YYYY-MM-DD" }
-// where the date is the Monday of the assigned week. Tab schema (row 1 = headers):
-//   A: Colegio   B: Sede   C: Jornada   D: Clase   E: Semana (YYYY-MM-DD, lunes)
+// ---------- Aula → fecha assignments ----------
+// Reads the "Asignaciones" tab and returns a map
+//   { "Colegio|Sede|Jornada|Clase": "YYYY-MM-DD" }
+// where the date is the SPECIFIC DAY (not the Monday of the week). Tab schema:
+//   A: Colegio   B: Sede   C: Jornada   D: Clase   E: Fecha (YYYY-MM-DD)
 // Missing tab, empty tab, or invalid rows are silently ignored — the frontend
 // simply won't show an assignment banner for aulas not listed here.
-const ASSIGNMENTS_HEADER = ['Colegio', 'Sede', 'Jornada', 'Clase', 'Semana'];
+const ASSIGNMENTS_HEADER = ['Colegio', 'Sede', 'Jornada', 'Clase', 'Fecha'];
 
 function getAssignments_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -264,17 +265,17 @@ function getAssignments_() {
     const sede    = String(row[1] || '').trim();
     const jornada = String(row[2] || '').trim();
     const clase   = String(row[3] || '').trim();
-    let semana    = row[4];
-    if (!colegio || !sede || !jornada || !clase || !semana) continue;
-    // Normalize semana to "YYYY-MM-DD".
-    if (Object.prototype.toString.call(semana) === '[object Date]') {
-      semana = Utilities.formatDate(semana, TIMEZONE, 'yyyy-MM-dd');
+    let fecha     = row[4];
+    if (!colegio || !sede || !jornada || !clase || !fecha) continue;
+    // Normalize fecha to "YYYY-MM-DD".
+    if (Object.prototype.toString.call(fecha) === '[object Date]') {
+      fecha = Utilities.formatDate(fecha, TIMEZONE, 'yyyy-MM-dd');
     } else {
-      semana = String(semana).trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(semana)) continue;
+      fecha = String(fecha).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) continue;
     }
     const key = colegio + '|' + sede + '|' + jornada + '|' + clase;
-    out[key] = semana;
+    out[key] = fecha;
   }
   return out;
 }

@@ -800,16 +800,234 @@
     font-weight: 700;
   }
 
+  /* ----- New step-card flow ----- */
+  .step-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 22px 24px;
+    margin: 16px 0;
+  }
+  .step-card[hidden] { display: none; }
+
+  .step-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .step-num {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 800;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-head h2 {
+    font-size: 18px;
+    font-weight: 800;
+    margin: 0;
+    color: var(--text);
+  }
+
+  /* Assigned-date banner */
+  .assigned-banner {
+    background: #ecfdf5;
+    border: 1px solid #6ee7b7;
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+  .assigned-banner-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #065f46;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .assigned-banner-date {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 4px 0 6px;
+    text-transform: capitalize;
+    line-height: 1.2;
+  }
+  .assigned-banner-help {
+    font-size: 12.5px;
+    color: #065f46;
+    font-weight: 600;
+  }
+
+  /* Hour chips */
+  .chip-section { margin-bottom: 16px; }
+  .chip-section-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .chip-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+    gap: 8px;
+  }
+  .chip {
+    background: var(--available);
+    color: var(--available-text);
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 8px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    text-align: center;
+    transition: transform 0.1s, box-shadow 0.15s;
+    line-height: 1.15;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  .chip-time { font-size: 14px; font-weight: 800; }
+  .chip-cupos { font-size: 11px; font-weight: 600; opacity: 0.85; }
+  .chip:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.10);
+  }
+  .chip:active:not(:disabled) { transform: translateY(0); }
+  .chip.partial { background: var(--partial); color: var(--partial-text); }
+  .chip.low     { background: var(--low);     color: var(--low-text); }
+  .chip.full    { background: var(--full);    color: var(--full-text); cursor: not-allowed; }
+  .chip.past    { background: repeating-linear-gradient(45deg, transparent, transparent 4px, #f3f4f6 4px, #f3f4f6 8px); color: var(--full-text); cursor: not-allowed; }
+  .chip.selected {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 0 0 3px rgba(15,76,129,0.20);
+  }
+
+  /* Link-style button (no background) */
+  .btn-link {
+    background: transparent;
+    border: 0;
+    color: var(--primary);
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+    padding: 12px 4px;
+    margin-top: 8px;
+    text-align: left;
+  }
+  .btn-link:hover { text-decoration: underline; }
+
+  /* Already-booked panel */
+  .already-booked {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .already-booked-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: #9a3412;
+    color: #fff;
+    font-weight: 800;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .already-booked-title { font-weight: 800; color: #9a3412; font-size: 15px; }
+  .already-booked-time { color: var(--text); font-weight: 700; margin-top: 2px; text-transform: capitalize; }
+  .already-booked-help { font-size: 13px; color: #92400e; margin-top: 6px; }
+
+  /* Fallback (mini-week) header */
+  .fallback-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 16px 0 12px;
+  }
+  .fallback-header h3 {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0;
+  }
+  .muted-note { color: var(--muted); font-size: 12.5px; margin-top: 12px; font-weight: 600; }
+
+  /* Form actions row */
+  .form-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .form-actions .btn-primary { flex: 1; min-width: 160px; }
+
+  /* Reservations table → <details> wrapper */
+  .reservations-card[open] { padding-bottom: 0; }
+  .reservations-card summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+    border-bottom: 1px solid transparent;
+  }
+  .reservations-card[open] summary { border-bottom-color: var(--border); }
+  .reservations-card summary::-webkit-details-marker { display: none; }
+  .reservations-summary-text { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .reservations-summary-text strong { font-size: 15px; color: var(--text); }
+  .reservations-card .reservations-summary { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .reservations-chevron {
+    font-size: 16px;
+    color: var(--muted);
+    transition: transform 0.15s;
+  }
+  .reservations-card[open] .reservations-chevron { transform: rotate(180deg); }
+
   @media (max-width: 640px) {
     .container { padding: 20px 12px 40px; }
     h1 { font-size: 22px; }
     .lead { font-size: 14px; }
+    .step-card { padding: 18px 16px; }
+    .step-head h2 { font-size: 16px; }
+    .assigned-banner-date { font-size: 18px; }
+    .chip-grid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+    .chip { padding: 8px 4px; min-height: 50px; }
+    .chip-time { font-size: 13px; }
     .calendar-header { padding: 12px 14px; }
     .legend { padding: 10px 14px; gap: 10px; }
     .week-label { font-size: 14px; }
     .nav-btn { padding: 6px 10px; font-size: 12px; }
     .reservations-table thead th,
     .reservations-table tbody td { padding: 8px 10px; font-size: 12px; }
+    .form-actions { flex-direction: column-reverse; }
+    .form-actions .btn { width: 100%; }
   }
 </style>
 </head>
@@ -818,7 +1036,7 @@
   <header>
     <div class="brand">OCE-SED · Encuesta de clima de aula</div>
     <h1>Reserva el horario para aplicar la encuesta</h1>
-    <p class="lead">La encuesta requiere <strong>dos horas de clase (un bloque)</strong> y se reserva por aula. La ventana de reservas va del <strong>27 de julio al 4 de septiembre de 2026</strong>. Selecciona tu localidad, tu colegio y el horario que prefieras.</p>
+    <p class="lead">La encuesta requiere <strong>dos horas de clase (un bloque)</strong> y se reserva por aula. La ventana de reservas va del <strong>27 de julio al 11 de septiembre de 2026</strong>. Selecciona tu localidad, tu colegio y el horario que prefieras.</p>
   </header>
 
   <div class="logistics-note">
@@ -832,95 +1050,154 @@
     ⚠️ La URL de Apps Script no está configurada. Edita la constante <code>APPS_SCRIPT_URL</code> en <code>index.html</code>.
   </div>
 
-  <section class="instructions">
-    <h2>¿Cómo reservar?</h2>
-    <ol class="steps">
-      <li><strong>Elige el día</strong>Navega por las semanas dentro de la ventana (1 ago – 15 sep) hasta encontrar el día que necesitas.</li>
-      <li><strong>Selecciona la hora</strong>Haz clic en un bloque con cupos disponibles (verde, amarillo o naranja).</li>
-      <li><strong>Confirma tus datos</strong>Elige tu localidad, tu colegio (con jornada y aula) y deja un contacto de logística.</li>
-    </ol>
+  <!-- =================================================================
+       Paso 1 — Identifícate
+       ================================================================= -->
+  <section class="step-card" id="step1Card">
+    <div class="step-head">
+      <div class="step-num">1</div>
+      <h2>Identifica tu aula</h2>
+    </div>
+    <div class="form-row">
+      <label for="localidadSelect">Localidad</label>
+      <select id="localidadSelect" required>
+        <option value="">Selecciona la localidad…</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label for="schoolSelect">Colegio · Jornada · Aula</label>
+      <select id="schoolSelect" required disabled>
+        <option value="">Primero selecciona la localidad</option>
+      </select>
+    </div>
   </section>
 
-  <div class="calendar-card">
-    <div class="calendar-header">
-      <div class="week-label" id="weekLabel">Cargando…</div>
-      <div class="week-nav">
-        <select class="week-jump" id="weekJump" aria-label="Saltar a una semana específica">
-          <option value="">Cargando semanas…</option>
-        </select>
-        <button class="nav-btn" id="prevWeek" type="button" aria-label="Semana anterior">←</button>
-        <button class="nav-btn" id="nextWeek" type="button" aria-label="Semana siguiente">→</button>
-      </div>
+  <!-- =================================================================
+       Paso 2 — Hora / Calendario  (oculto hasta que se elija aula)
+       ================================================================= -->
+  <section class="step-card" id="step2Card" hidden>
+    <div class="step-head">
+      <div class="step-num">2</div>
+      <h2 id="step2Title">Elige la hora</h2>
     </div>
-    <div class="calendar-body" id="calendarBody">
-      <div class="status">
-        <div class="spinner"></div>
-        <div style="margin-top:14px">Cargando disponibilidad…</div>
-      </div>
-    </div>
-    <div class="legend">
-      <div class="legend-item"><span class="legend-swatch" style="background:var(--available)"></span>4 cupos</div>
-      <div class="legend-item"><span class="legend-swatch" style="background:var(--partial)"></span>2–3 cupos</div>
-      <div class="legend-item"><span class="legend-swatch" style="background:var(--low)"></span>1 cupo</div>
-      <div class="legend-item"><span class="legend-swatch" style="background:var(--full)"></span>Sin cupo</div>
-      <div class="legend-item" style="margin-left:auto"><span style="background:rgba(255,255,255,0.55);border:1px solid rgba(0,0,0,0.05);border-radius:4px;padding:2px 6px;font-size:10.5px;font-weight:700;color:#1f2937">Colegio · Aula</span> reserva existente</div>
-    </div>
-  </div>
 
-  <!-- Reservations table -->
-  <section class="reservations-card">
-    <div class="reservations-header">
-      <h2>Reservas actuales</h2>
-      <div class="reservations-summary" id="reservationsSummary">—</div>
+    <!-- Aula ya tiene una reserva (caso bloqueante) -->
+    <div class="already-booked" id="alreadyBookedBox" hidden>
+      <div class="already-booked-icon">✓</div>
+      <div>
+        <div class="already-booked-title">Esta aula ya tiene una reserva</div>
+        <div class="already-booked-time" id="alreadyBookedTime"></div>
+        <div class="already-booked-help">
+          Si necesitas cambiarla o cancelarla, contacta al <strong>WhatsApp del proyecto</strong>.
+        </div>
+      </div>
     </div>
+
+    <!-- Banner de fecha asignada (modo "day-chips") -->
+    <div class="assigned-banner" id="assignedBanner" hidden>
+      <div class="assigned-banner-label">Tu fecha asignada es</div>
+      <div class="assigned-banner-date" id="assignedBannerDate">—</div>
+      <div class="assigned-banner-help">Elige la hora que mejor te quede ese día. Cada bloque dura 2 horas.</div>
+    </div>
+
+    <!-- Chips de horas para el día asignado -->
+    <div id="dayChipsContainer" hidden>
+      <div class="chip-section" id="morningSection">
+        <h3 class="chip-section-label">Jornada mañana</h3>
+        <div class="chip-grid" id="morningChips"></div>
+      </div>
+      <div class="chip-section" id="afternoonSection">
+        <h3 class="chip-section-label">Jornada tarde</h3>
+        <div class="chip-grid" id="afternoonChips"></div>
+      </div>
+      <button type="button" class="btn-link" id="showWeekBtn">
+        ⌄ No puedo ese día — ver otras horas de mi semana
+      </button>
+    </div>
+
+    <!-- Mini-calendario de la semana asignada (fallback opcional) -->
+    <div id="weekFallbackContainer" hidden>
+      <div class="fallback-header">
+        <h3>Otras horas de tu semana — <span id="weekFallbackLabel">—</span></h3>
+        <button type="button" class="btn-link" id="hideWeekBtn">← Volver a la fecha asignada</button>
+      </div>
+      <div class="calendar-body" id="weekFallbackBody"></div>
+      <p class="muted-note">
+        Para reagendar a una semana distinta, contacta al <strong>WhatsApp del proyecto</strong>.
+      </p>
+    </div>
+
+    <!-- Calendario completo (fallback cuando NO hay asignación para esta aula) -->
+    <div id="fullCalendarContainer" hidden>
+      <div class="calendar-header">
+        <div class="week-label" id="weekLabel">Cargando…</div>
+        <div class="week-nav">
+          <select class="week-jump" id="weekJump" aria-label="Saltar a una semana específica">
+            <option value="">Cargando semanas…</option>
+          </select>
+          <button class="nav-btn" id="prevWeek" type="button" aria-label="Semana anterior">←</button>
+          <button class="nav-btn" id="nextWeek" type="button" aria-label="Semana siguiente">→</button>
+        </div>
+      </div>
+      <div class="calendar-body" id="calendarBody">
+        <div class="status">
+          <div class="spinner"></div>
+          <div style="margin-top:14px">Cargando disponibilidad…</div>
+        </div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-swatch" style="background:var(--available)"></span>4 cupos</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:var(--partial)"></span>2–3 cupos</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:var(--low)"></span>1 cupo</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:var(--full)"></span>Sin cupo</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       Paso 3 — Confirma (form de contacto)
+       ================================================================= -->
+  <section class="step-card" id="step3Card" hidden>
+    <div class="step-head">
+      <div class="step-num">3</div>
+      <h2>Confirma tu reserva</h2>
+    </div>
+
+    <div class="block-summary">
+      <div class="block-summary-label">Vas a reservar el bloque de 2 horas</div>
+      <div class="block-summary-time" id="confirmTimeText">—</div>
+      <div class="block-summary-day" id="confirmDayText">—</div>
+    </div>
+
+    <div class="form-error" id="formError"></div>
+
+    <div class="form-row">
+      <label for="contactInput">Contacto (docente o coordinador/a)</label>
+      <input type="text" id="contactInput" placeholder="Nombre completo" autocomplete="name" required />
+    </div>
+    <div class="form-row">
+      <label for="phoneInput">Teléfono</label>
+      <input type="tel" id="phoneInput" placeholder="Solo números (ej. 3001234567)" inputmode="numeric" pattern="[0-9]+" autocomplete="tel" required />
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" id="changeSlotBtn">← Cambiar hora</button>
+      <button type="button" class="btn btn-primary" id="confirmBtn">Confirmar reserva</button>
+    </div>
+  </section>
+
+  <!-- Reservas confirmadas (colapsada por defecto) -->
+  <details class="reservations-card" id="reservationsCard">
+    <summary>
+      <span class="reservations-summary-text">
+        <strong>Reservas confirmadas</strong>
+        <span class="reservations-summary" id="reservationsSummary">—</span>
+      </span>
+      <span class="reservations-chevron">▾</span>
+    </summary>
     <div class="reservations-body" id="reservationsBody">
       <div class="reservations-empty">Cargando…</div>
     </div>
-  </section>
-</div>
-
-<!-- Booking modal -->
-<div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="modalTitle">Confirma tu reserva</div>
-      <div class="modal-subtitle" id="modalSubtitle"></div>
-    </div>
-    <form id="bookingForm" class="modal-body" novalidate>
-      <div class="form-error" id="formError"></div>
-      <div class="aula-warning" id="aulaWarning"></div>
-      <div class="assignment-info" id="assignmentInfo"></div>
-      <div class="block-summary" id="blockSummary">
-        <div class="block-summary-label">Vas a reservar el bloque completo de 2 horas</div>
-        <div class="block-summary-time" id="blockSummaryTime"></div>
-        <div class="block-summary-day" id="blockSummaryDay"></div>
-      </div>
-      <div class="form-row">
-        <label for="localidadSelect">Localidad</label>
-        <select id="localidadSelect" required>
-          <option value="">Selecciona la localidad…</option>
-        </select>
-      </div>
-      <div class="form-row">
-        <label for="schoolSelect">Colegio · Jornada · Aula</label>
-        <select id="schoolSelect" required disabled>
-          <option value="">Primero selecciona la localidad</option>
-        </select>
-      </div>
-      <div class="form-row">
-        <label for="contactInput">Contacto (docente o coordinador/a)</label>
-        <input type="text" id="contactInput" placeholder="Nombre completo" autocomplete="name" required />
-      </div>
-      <div class="form-row">
-        <label for="phoneInput">Teléfono</label>
-        <input type="tel" id="phoneInput" placeholder="Solo números (ej. 3001234567)" inputmode="numeric" pattern="[0-9]+" autocomplete="tel" required />
-      </div>
-    </form>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-secondary" id="cancelBtn">Cancelar</button>
-      <button type="button" class="btn btn-primary" id="confirmBtn">Confirmar reserva</button>
-    </div>
-  </div>
+  </details>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -1070,7 +1347,7 @@ const TIMEZONE = "America/Bogota";
 // Calendar window: only allow reservations within [WINDOW_START, WINDOW_END].
 // Inclusive of both endpoints. Bogota local time. Month is 0-indexed.
 const WINDOW_START = new Date(2026, 6, 27);  // Jul 27, 2026 (lunes)
-const WINDOW_END   = new Date(2026, 8, 4);   // Sep 4, 2026  (viernes)
+const WINDOW_END   = new Date(2026, 8, 11);  // Sep 11, 2026 (viernes)
 
 const DAY_NAMES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
 const MONTH_NAMES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
@@ -1382,7 +1659,7 @@ function renderCalendar() {
         const cuposText = `${left} ${left === 1 ? 'cupo' : 'cupos'}`;
         renderSlotContent_(btn, slotBookings, cuposText);
         btn.setAttribute('aria-label', slotBookingsAriaLabel_(s.hour, s.minute, d, slotBookings, cuposText));
-        btn.addEventListener('click', () => openModal(d, s.hour, s.minute, key));
+        btn.addEventListener('click', () => selectSlot(d, s.hour, s.minute, key));
       }
       cell.appendChild(btn);
       grid.appendChild(cell);
@@ -1393,32 +1670,215 @@ function renderCalendar() {
   body.appendChild(grid);
 }
 
-// ----- Modal -----
-function openModal(date, hour, minute, key) {
-  selectedSlot = {
-    iso: key,
-    date,
-    hour,
-    minute,
-    label: `${formatDateLong(date)} · ${formatTime(hour, minute)} – ${endTime(hour, minute)}`
-  };
-  document.getElementById('modalSubtitle').textContent = selectedSlot.label;
-  document.getElementById('blockSummaryTime').textContent =
-    `${formatTime(hour, minute)} – ${endTime(hour, minute)}`;
-  document.getElementById('blockSummaryDay').textContent = formatDateLong(date);
-  document.getElementById('formError').classList.remove('show');
-  document.getElementById('aulaWarning').classList.remove('show');
-  document.getElementById('assignmentInfo').classList.remove('show');
-  document.getElementById('bookingForm').reset();
-  document.getElementById('schoolSelect').innerHTML = '<option value="">Primero selecciona la localidad</option>';
-  document.getElementById('schoolSelect').disabled = true;
-  document.getElementById('modalBackdrop').classList.add('open');
-  setTimeout(() => document.getElementById('localidadSelect').focus(), 50);
+// =====================================================================
+// STATE MACHINE — drives which step cards are visible.
+// =====================================================================
+// step1 = always visible (aula selector)
+// step2 = visible once an aula is selected. Has four sub-views:
+//   - already-booked    (aula already has a reservation)
+//   - day-chips         (aula has an assignment → show chips for that day)
+//   - week-fallback     (toggled from day-chips → mini-calendar for the week)
+//   - full-calendar     (aula has no assignment → original week-nav calendar)
+// step3 = visible once a slot is selected (contact + phone form).
+let currentStep2View = null;
+
+function showStep(state) {
+  const s1 = document.getElementById('step1Card');
+  const s2 = document.getElementById('step2Card');
+  const s3 = document.getElementById('step3Card');
+  if (state === 'identify') {
+    s2.hidden = true; s3.hidden = true;
+    selectedSlot = null;
+  } else if (state === 'pick-slot') {
+    s2.hidden = false; s3.hidden = true;
+  } else if (state === 'confirm') {
+    s2.hidden = false; s3.hidden = false;
+    // Scroll the confirm card into view (helpful on mobile)
+    setTimeout(() => s3.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
 }
 
-function closeModal() {
-  document.getElementById('modalBackdrop').classList.remove('open');
+function showStep2View(view) {
+  currentStep2View = view;
+  document.getElementById('alreadyBookedBox').hidden       = view !== 'already-booked';
+  document.getElementById('assignedBanner').hidden         = view !== 'day-chips';
+  document.getElementById('dayChipsContainer').hidden      = view !== 'day-chips';
+  document.getElementById('weekFallbackContainer').hidden  = view !== 'week-fallback';
+  document.getElementById('fullCalendarContainer').hidden  = view !== 'full-calendar';
+  // step2 title
+  const title = document.getElementById('step2Title');
+  if      (view === 'already-booked') title.textContent = 'Estado de tu reserva';
+  else if (view === 'day-chips')      title.textContent = 'Elige la hora';
+  else if (view === 'week-fallback')  title.textContent = 'Elige otra hora de tu semana';
+  else                                title.textContent = 'Elige día y hora';
+}
+
+// Decides which sub-view to show in step 2 based on the selected aula.
+// Called whenever the user picks (or changes) an aula in step 1.
+function setupStep2ForSelectedAula() {
+  const sel = getSelectedColegio();
+  // Changing aula invalidates any previously selected slot.
   selectedSlot = null;
+  if (!sel) { showStep('identify'); return; }
+
+  showStep('pick-slot');
+
+  // 1) Aula already reserved? Block.
+  const existing = findExistingReservationForAula(sel);
+  if (existing) {
+    showStep2View('already-booked');
+    document.getElementById('alreadyBookedTime').textContent = humanizeSlotKey(existing);
+    return;
+  }
+
+  // 2) Aula has an assigned date? Show day chips.
+  const assignedDate = getAssignedDateFor(sel);
+  if (assignedDate) {
+    showStep2View('day-chips');
+    document.getElementById('assignedBannerDate').textContent = formatDateLongShort(assignedDate);
+    renderDayChips(assignedDate);
+    // Reset the week-fallback toggle state
+    return;
+  }
+
+  // 3) No assignment → fallback to the full calendar with week-nav.
+  showStep2View('full-calendar');
+  if (!currentWeekStart) currentWeekStart = clampMondayToWindow(startOfWeekMonday(nowInBogota()));
+  renderCalendar();
+}
+
+// Called when the user picks a slot (from chips, mini-week, or full calendar).
+// Stages the selection and reveals step 3.
+function selectSlot(date, hour, minute, key) {
+  selectedSlot = {
+    iso: key, date, hour, minute,
+    label: `${formatDateLong(date)} · ${formatTime(hour, minute)} – ${endTime(hour, minute)}`
+  };
+  document.getElementById('confirmTimeText').textContent =
+    `${formatTime(hour, minute)} – ${endTime(hour, minute)}`;
+  document.getElementById('confirmDayText').textContent = formatDateLong(date);
+  document.getElementById('formError').classList.remove('show');
+  // Don't reset contact/phone here — preserve any typed data if user is fixing slot
+  showStep('confirm');
+  // Mark the chosen chip if it lives in a chip grid
+  document.querySelectorAll('.chip.selected').forEach(c => c.classList.remove('selected'));
+  const chipId = 'chip-' + key.replace(/[: -]/g, '');
+  const chip = document.getElementById(chipId);
+  if (chip) chip.classList.add('selected');
+}
+
+// =====================================================================
+// Chip render for the assigned-day view.
+// =====================================================================
+function renderDayChips(date) {
+  const slots = getTimeSlots();
+  const now = nowInBogota();
+  const morningEl = document.getElementById('morningChips');
+  const afternoonEl = document.getElementById('afternoonChips');
+  morningEl.innerHTML = '';
+  afternoonEl.innerHTML = '';
+  for (const s of slots) {
+    const slotDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), s.hour, s.minute);
+    const isPast = slotDate.getTime() <= now.getTime();
+    const key = slotKey(date, s.hour, s.minute);
+    const left = cuposLeftToStart(date, s.hour, s.minute);
+
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.id = 'chip-' + key.replace(/[: -]/g, '');
+    chip.innerHTML =
+      `<span class="chip-time">${formatTime(s.hour, s.minute)}</span>` +
+      `<span class="chip-cupos"></span>`;
+
+    if (isPast) {
+      chip.classList.add('past');
+      chip.disabled = true;
+      chip.querySelector('.chip-cupos').textContent = '—';
+    } else if (left === 0) {
+      chip.classList.add('full');
+      chip.disabled = true;
+      chip.querySelector('.chip-cupos').textContent = 'Sin cupo';
+    } else {
+      if (left <= 1) chip.classList.add('low');
+      else if (left <= 3) chip.classList.add('partial');
+      chip.querySelector('.chip-cupos').textContent = `${left} ${left === 1 ? 'cupo' : 'cupos'}`;
+      chip.addEventListener('click', () => selectSlot(date, s.hour, s.minute, key));
+    }
+    (s.hour < 12 ? morningEl : afternoonEl).appendChild(chip);
+  }
+}
+
+// =====================================================================
+// Mini-week render for the week-fallback view (no nav buttons).
+// Reuses the existing renderCalendar grid styles by directly building cells.
+// =====================================================================
+function renderMiniWeek(monday) {
+  const body = document.getElementById('weekFallbackBody');
+  document.getElementById('weekFallbackLabel').textContent = formatWeekRange(monday);
+  const now = nowInBogota();
+  const days = [0,1,2,3,4].map(i => addDays(monday, i));
+  const slots = getTimeSlots();
+
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+
+  // Header row
+  const corner = document.createElement('div');
+  corner.className = 'grid-cell corner-cell';
+  grid.appendChild(corner);
+  days.forEach(d => {
+    const isToday = d.toDateString() === now.toDateString();
+    const cell = document.createElement('div');
+    cell.className = 'grid-cell day-header' + (isToday ? ' today' : '');
+    cell.innerHTML =
+      `<div class="day-name">${DAY_NAMES[d.getDay()]}</div>` +
+      `<div class="day-num">${d.getDate()} ${MONTH_ABBR[d.getMonth()]}</div>`;
+    grid.appendChild(cell);
+  });
+
+  // Time-slot rows
+  slots.forEach(s => {
+    const timeCell = document.createElement('div');
+    timeCell.className = 'grid-cell time-label';
+    timeCell.textContent = formatTime(s.hour, s.minute);
+    grid.appendChild(timeCell);
+    days.forEach(d => {
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell';
+      const slotDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), s.hour, s.minute);
+      const isPast = slotDate.getTime() <= now.getTime();
+      const outsideWindow = !isInWindow(d);
+      const key = slotKey(d, s.hour, s.minute);
+      const left = cuposLeftToStart(d, s.hour, s.minute);
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'slot';
+      if (outsideWindow || isPast) {
+        btn.classList.add('past'); btn.disabled = true;
+      } else if (left === 0) {
+        btn.classList.add('full'); btn.disabled = true; btn.textContent = 'Sin cupo';
+      } else {
+        if (left <= 1) btn.classList.add('low');
+        else if (left <= 3) btn.classList.add('partial');
+        btn.textContent = `${left} ${left === 1 ? 'cupo' : 'cupos'}`;
+        btn.addEventListener('click', () => selectSlot(d, s.hour, s.minute, key));
+      }
+      cell.appendChild(btn);
+      grid.appendChild(cell);
+    });
+  });
+
+  body.innerHTML = '';
+  body.appendChild(grid);
+}
+
+// Helper to format week range (used by mini-week header + the dropdown removal).
+function formatWeekRange(monday) {
+  const fri = addDays(monday, 4);
+  const sameMonth = monday.getMonth() === fri.getMonth();
+  return sameMonth
+    ? `del ${monday.getDate()} al ${fri.getDate()} de ${MONTH_NAMES[fri.getMonth()]}`
+    : `del ${monday.getDate()} de ${MONTH_NAMES[monday.getMonth()]} al ${fri.getDate()} de ${MONTH_NAMES[fri.getMonth()]}`;
 }
 
 // ---- Localidad / Colegio cascading dropdowns ----
@@ -1517,25 +1977,10 @@ function humanizeSlotKey(slotK) {
   return `${formatDateLong(d)} a las ${formatTime(h, mi)}`;
 }
 
-// Show / clear an inline warning right above the form when the picked aula
-// already has a reservation somewhere in the calendar.
-function refreshAulaWarning() {
-  const warn = document.getElementById('aulaWarning');
-  if (!warn) return;
-  const sel = getSelectedColegio();
-  const existing = findExistingReservationForAula(sel);
-  if (existing) {
-    warn.innerHTML =
-      `Esta aula ya tiene una reserva — <strong>${humanizeSlotKey(existing)}</strong>. ` +
-      `Solo se permite una reserva por aula. Si necesitas cambiarla, cancela la anterior contactando al whatsapp del proyecto.`;
-    warn.classList.add('show');
-  } else {
-    warn.classList.remove('show');
-    warn.textContent = '';
-  }
-}
+// (refreshAulaWarning was removed — the "already booked" state is now driven
+// by setupStep2ForSelectedAula() showing the alreadyBookedBox in step 2.)
 
-// ----- Aula → semana asignada -----
+// ----- Aula → fecha asignada -----
 
 // Build the lookup key used by the assignments map.
 function aulaKeyFor(sel) {
@@ -1543,9 +1988,9 @@ function aulaKeyFor(sel) {
   return [sel.colegio, sel.sede, sel.jornada, String(sel.clase || '')].join('|');
 }
 
-// Returns the Monday Date assigned to this aula, or null if no assignment exists
-// (or the assignment is invalid).
-function getAssignedMondayFor(sel) {
+// Returns the SPECIFIC DAY (Date object) assigned to this aula, or null if
+// no assignment exists (or the assignment is invalid).
+function getAssignedDateFor(sel) {
   const key = aulaKeyFor(sel);
   const v = assignments[key];
   if (!v) return null;
@@ -1554,51 +1999,13 @@ function getAssignedMondayFor(sel) {
   return new Date(+m[1], +m[2] - 1, +m[3]);
 }
 
-// "2026-07-27" Date → "del 27 al 31 de julio"
-function formatWeekRange(monday) {
-  const fri = addDays(monday, 4);
-  const sameMonth = monday.getMonth() === fri.getMonth();
-  return sameMonth
-    ? `del ${monday.getDate()} al ${fri.getDate()} de ${MONTH_NAMES[fri.getMonth()]}`
-    : `del ${monday.getDate()} de ${MONTH_NAMES[monday.getMonth()]} al ${fri.getDate()} de ${MONTH_NAMES[fri.getMonth()]}`;
+// Date → "martes 12 de agosto"
+function formatDateLongShort(d) {
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()} de ${MONTH_NAMES[d.getMonth()]}`;
 }
 
-// Show a green banner if the selected slot is in the assigned week, a yellow
-// banner with a "go to my week" button if it's elsewhere. Hidden if no
-// assignment exists for this aula or no slot is selected yet.
-function refreshAssignmentInfo() {
-  const box = document.getElementById('assignmentInfo');
-  if (!box) return;
-  box.classList.remove('show', 'matched', 'mismatched');
-  box.innerHTML = '';
-
-  const sel = getSelectedColegio();
-  if (!sel || !selectedSlot) return;
-
-  const assignedMonday = getAssignedMondayFor(sel);
-  if (!assignedMonday) return;
-
-  const selectedMonday = startOfWeekMonday(selectedSlot.date);
-  const matches = assignedMonday.getTime() === selectedMonday.getTime();
-
-  if (matches) {
-    box.classList.add('show', 'matched');
-    box.innerHTML = `✓ Esta es la semana asignada a tu aula (<strong>${formatWeekRange(assignedMonday)}</strong>).`;
-  } else {
-    box.classList.add('show', 'mismatched');
-    box.innerHTML =
-      `<span>⚠️ La semana asignada a tu aula es <strong>${formatWeekRange(assignedMonday)}</strong>. ` +
-      `Te recomendamos reservar en esa semana.</span>` +
-      `<button type="button" class="jump-btn" id="jumpToAssignedBtn">Ir a mi semana</button>`;
-    // Wire the jump button
-    const btn = document.getElementById('jumpToAssignedBtn');
-    if (btn) btn.addEventListener('click', () => {
-      closeModal();
-      currentWeekStart = clampMondayToWindow(assignedMonday);
-      renderCalendar();
-    });
-  }
-}
+// (refreshAssignmentInfo was removed — the assigned-date banner is now part
+// of step 2 itself, set up by setupStep2ForSelectedAula().)
 
 function showFormError(msg) {
   const el = document.getElementById('formError');
@@ -1636,16 +2043,20 @@ async function submitBooking() {
     );
   }
 
-  // Soft check: if the aula has an assigned week and is trying to reserve in a
-  // different week, ask for confirmation. Lets them continue but makes the
+  // Soft check: if the aula has an assigned date and is trying to reserve on a
+  // different day, ask for confirmation. Lets them continue but makes the
   // mismatch impossible to miss.
-  const assignedMonday = getAssignedMondayFor(sel);
-  if (assignedMonday && selectedSlot) {
-    const selectedMonday = startOfWeekMonday(selectedSlot.date);
-    if (assignedMonday.getTime() !== selectedMonday.getTime()) {
+  const assignedDate = getAssignedDateFor(sel);
+  if (assignedDate && selectedSlot) {
+    const sameDay = (
+      assignedDate.getFullYear() === selectedSlot.date.getFullYear() &&
+      assignedDate.getMonth() === selectedSlot.date.getMonth() &&
+      assignedDate.getDate() === selectedSlot.date.getDate()
+    );
+    if (!sameDay) {
       const ok = window.confirm(
-        `La semana asignada a tu aula es ${formatWeekRange(assignedMonday)}, ` +
-        `pero estás reservando en la semana ${formatWeekRange(selectedMonday)}.\n\n` +
+        `La fecha asignada a tu aula es ${formatDateLongShort(assignedDate)}, ` +
+        `pero estás reservando el ${formatDateLongShort(selectedSlot.date)}.\n\n` +
         `¿Quieres continuar de todos modos?`
       );
       if (!ok) return;
@@ -1679,20 +2090,31 @@ async function submitBooking() {
     if (res && res.ok) {
       const dateStr = formatDateLong(selectedSlot.date);
       const timeStr = formatTime(selectedSlot.hour, selectedSlot.minute);
-      closeModal();
+      // Reset the form, scroll to step 1, show toast.
+      document.getElementById('contactInput').value = '';
+      document.getElementById('phoneInput').value = '';
+      document.getElementById('localidadSelect').value = '';
+      document.getElementById('schoolSelect').innerHTML = '<option value="">Primero selecciona la localidad</option>';
+      document.getElementById('schoolSelect').disabled = true;
+      showStep('identify');
+      document.getElementById('step1Card').scrollIntoView({ behavior: 'smooth', block: 'start' });
       showToast(`Reserva confirmada para ${dateStr} a las ${timeStr}`, 'success');
       await refresh();
     } else if (res && res.error === 'slot_full') {
-      showFormError('Ese horario acaba de llenarse, por favor elige otro.');
-      // Refresh in background so the calendar updates
-      refresh();
+      // Refresh so chips reflect the new state, then push the user back
+      // to pick a different slot.
+      showToast('Ese horario acaba de llenarse, por favor elige otro.', 'error');
+      await refresh();
+      selectedSlot = null;
+      showStep('pick-slot');
+      if (getSelectedColegio()) setupStep2ForSelectedAula();
     } else if (res && res.error === 'aula_already_booked') {
-      const when = res.existingSlot ? ` (${humanizeSlotKey(res.existingSlot)})` : '';
-      showFormError(
-        `Esta aula ya tiene una reserva${when}. Solo se permite una reserva por aula. ` +
-        `Si necesitas cambiarla, cancela la anterior contactando al whatsapp del proyecto.`
-      );
-      refresh();
+      // Someone (the same user from another tab, or staff) booked first.
+      // Send them back to step 1 and let setupStep2 show the already-booked banner.
+      showToast('Esta aula ya tiene una reserva. Si necesitas cambiarla, contacta al WhatsApp del proyecto.', 'error');
+      await refresh();
+      selectedSlot = null;
+      if (getSelectedColegio()) setupStep2ForSelectedAula();
     } else if (res && res.error === 'already_booked') {
       // Back-compat: old backend before per-aula uniqueness.
       showFormError('Este colegio ya tiene una reserva en este horario.');
@@ -1828,10 +2250,33 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('configWarning').style.display = 'block';
   }
   populateLocalidades();
-  populateWeekJump();
+  populateWeekJump();   // for the full-calendar fallback view
   currentWeekStart = clampMondayToWindow(startOfWeekMonday(nowInBogota()));
+  showStep('identify'); // start at step 1
   refresh();
 
+  // --- Aula selectors (Step 1) ---
+  document.getElementById('localidadSelect').addEventListener('change', () => {
+    onLocalidadChange();
+    setupStep2ForSelectedAula();
+  });
+  document.getElementById('schoolSelect').addEventListener('change', setupStep2ForSelectedAula);
+
+  // --- Step 2 sub-view toggles ---
+  document.getElementById('showWeekBtn').addEventListener('click', () => {
+    const sel = getSelectedColegio();
+    if (!sel) return;
+    const assignedDate = getAssignedDateFor(sel);
+    if (!assignedDate) return;
+    const monday = startOfWeekMonday(assignedDate);
+    renderMiniWeek(monday);
+    showStep2View('week-fallback');
+  });
+  document.getElementById('hideWeekBtn').addEventListener('click', () => {
+    showStep2View('day-chips');
+  });
+
+  // --- Full-calendar fallback nav (only used when no assignment) ---
   document.getElementById('weekJump').addEventListener('change', (e) => {
     const v = e.target.value;
     if (!v) return;
@@ -1840,7 +2285,6 @@ document.addEventListener('DOMContentLoaded', () => {
     currentWeekStart = clampMondayToWindow(new Date(+m[1], +m[2] - 1, +m[3]));
     renderCalendar();
   });
-
   document.getElementById('prevWeek').addEventListener('click', () => {
     currentWeekStart = addDays(currentWeekStart, -7);
     renderCalendar();
@@ -1849,25 +2293,17 @@ document.addEventListener('DOMContentLoaded', () => {
     currentWeekStart = addDays(currentWeekStart, 7);
     renderCalendar();
   });
-  document.getElementById('localidadSelect').addEventListener('change', () => {
-    onLocalidadChange();
-    refreshAulaWarning();
-    refreshAssignmentInfo();
-  });
-  document.getElementById('schoolSelect').addEventListener('change', () => {
-    refreshAulaWarning();
-    refreshAssignmentInfo();
-  });
-  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+
+  // --- Step 3 (confirm form) ---
   document.getElementById('confirmBtn').addEventListener('click', submitBooking);
+  document.getElementById('changeSlotBtn').addEventListener('click', () => {
+    selectedSlot = null;
+    showStep('pick-slot');
+    document.querySelectorAll('.chip.selected').forEach(c => c.classList.remove('selected'));
+    document.getElementById('step2Card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
   document.getElementById('phoneInput').addEventListener('input', (e) => {
     e.target.value = e.target.value.replace(/[^0-9]/g, '');
-  });
-  document.getElementById('modalBackdrop').addEventListener('click', (e) => {
-    if (e.target.id === 'modalBackdrop') closeModal();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
   });
 });
 </script>
