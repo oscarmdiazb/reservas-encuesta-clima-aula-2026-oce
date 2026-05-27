@@ -686,6 +686,70 @@
   .logistics-text { flex: 1; }
   .logistics-text strong { color: var(--primary); font-weight: 800; }
 
+  /* ---- "How it works" card (top of page) ---- */
+  .how-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
+    margin: 16px 0;
+  }
+  .how-steps {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .how-steps li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .how-icon {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 800;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .how-text {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--text);
+  }
+  .how-text strong { color: var(--text); font-weight: 800; }
+  .how-text em { font-style: normal; color: var(--primary); font-weight: 700; }
+
+  .whatsapp-cta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: #d1fae5;
+    border: 1px solid #6ee7b7;
+    border-radius: 10px;
+    text-decoration: none;
+    color: #065f46;
+    font-size: 13.5px;
+    font-weight: 700;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .whatsapp-cta:hover { background: #a7f3d0; }
+  .whatsapp-cta:active { transform: scale(0.99); }
+  .whatsapp-cta .wa-icon { font-size: 18px; flex-shrink: 0; }
+  .whatsapp-cta .wa-text { flex: 1; line-height: 1.35; }
+  .whatsapp-cta strong { white-space: nowrap; }
+
   /* Reservations table (below calendar) */
   .reservations-card {
     background: var(--card);
@@ -934,6 +998,54 @@
   }
   .btn-link:hover { text-decoration: underline; }
 
+  /* Day-chip grid (week-fallback sub-step A) */
+  .day-chip-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+  .chip.day-chip {
+    min-height: 78px;
+    padding: 12px 8px;
+    gap: 2px;
+  }
+  .day-chip-name {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    opacity: 0.85;
+  }
+  .day-chip-date {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+  .day-chip-meta {
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.85;
+    margin-top: 2px;
+  }
+
+  /* Header above hour chips once a day is picked */
+  .picked-day-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: var(--bg);
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin: 14px 0;
+  }
+  .picked-day-label {
+    font-weight: 800;
+    color: var(--text);
+    text-transform: capitalize;
+    font-size: 15px;
+  }
+
   /* Already-booked panel */
   .already-booked {
     background: #fff7ed;
@@ -1039,16 +1151,36 @@
 <div class="container">
   <header>
     <div class="brand">OCE-SED · Encuesta de clima de aula</div>
-    <h1>Reserva el horario para aplicar la encuesta</h1>
-    <p class="lead">La encuesta requiere <strong>dos horas de clase (un bloque)</strong> y se reserva por aula. La ventana de reservas va del <strong>27 de julio al 11 de septiembre de 2026</strong>. Selecciona tu localidad, tu colegio y el horario que prefieras.</p>
+    <h1>Reserva el horario para aplicar la encuesta en el aula asignada</h1>
+    <p class="lead">A cada aula se le asignó un día por logística. Solo necesitas elegir la hora.</p>
   </header>
 
-  <div class="logistics-note">
-    <div class="logistics-icon" aria-hidden="true">i</div>
-    <div class="logistics-text">
-      <strong>Después de reservar:</strong> el equipo encuestador se comunicará con el colegio para confirmar la logística. Agradecemos garantizar el acceso al salón de clases en la fecha reservada — los materiales para el ejercicio los traerá el equipo encuestador.
-    </div>
-  </div>
+  <section class="how-card">
+    <ol class="how-steps">
+      <li>
+        <div class="how-icon" aria-hidden="true">1</div>
+        <div class="how-text">
+          <strong>Identifica tu aula</strong> (localidad → colegio · jornada · curso). Verás la <em>fecha asignada</em>.
+        </div>
+      </li>
+      <li>
+        <div class="how-icon" aria-hidden="true">2</div>
+        <div class="how-text">
+          <strong>Elige la hora en esa fecha.</strong> Si el aula realmente no puede ese día, hay opción de elegir otro día de la misma semana — pero agradecemos cumplir la fecha asignada por logística.
+        </div>
+      </li>
+      <li>
+        <div class="how-icon" aria-hidden="true">3</div>
+        <div class="how-text">
+          <strong>Confirma.</strong> El equipo encuestador se comunicará para coordinar. La encuesta dura <strong>2 horas</strong> (un bloque); los materiales los lleva el equipo. Por favor garantizar acceso al salón en la fecha y hora reservadas.
+        </div>
+      </li>
+    </ol>
+    <a class="whatsapp-cta" href="https://wa.me/573019597822" target="_blank" rel="noopener">
+      <span class="wa-icon" aria-hidden="true">💬</span>
+      <span class="wa-text">¿Dudas? Escríbenos al WhatsApp del proyecto · <strong>+57 301 959 78 22</strong></span>
+    </a>
+  </section>
 
   <div id="configWarning" class="config-warning" style="display:none">
     ⚠️ La URL de Apps Script no está configurada. Edita la constante <code>APPS_SCRIPT_URL</code> en <code>index.html</code>.
@@ -1115,17 +1247,39 @@
         <div class="chip-grid" id="afternoonChips"></div>
       </div>
       <button type="button" class="btn-link" id="showWeekBtn">
-        ⌄ No puedo ese día — ver otras horas de mi semana
+        ⌄ El aula no está disponible ese día — reservar otro día de la semana
       </button>
     </div>
 
-    <!-- Mini-calendario de la semana asignada (fallback opcional) -->
+    <!-- Fallback semana: dos sub-pasos (elegir día → elegir hora) -->
     <div id="weekFallbackContainer" hidden>
       <div class="fallback-header">
-        <h3>Otras horas de tu semana — <span id="weekFallbackLabel">—</span></h3>
+        <h3>Otro día de tu semana — <span id="weekFallbackLabel">—</span></h3>
         <button type="button" class="btn-link" id="hideWeekBtn">← Volver a la fecha asignada</button>
       </div>
-      <div class="calendar-body" id="weekFallbackBody"></div>
+
+      <!-- Sub-paso A: elegir día -->
+      <div id="weekDaysPicker">
+        <h4 class="chip-section-label">Elige el día</h4>
+        <div class="chip-grid day-chip-grid" id="weekDaysChips"></div>
+      </div>
+
+      <!-- Sub-paso B: elegir hora del día escogido -->
+      <div id="weekHoursPicker" hidden>
+        <div class="picked-day-header">
+          <span class="picked-day-label" id="pickedDayLabel">—</span>
+          <button type="button" class="btn-link" id="backToDayPickerBtn">← Cambiar día</button>
+        </div>
+        <div class="chip-section">
+          <h3 class="chip-section-label">Jornada mañana</h3>
+          <div class="chip-grid" id="weekMorningChips"></div>
+        </div>
+        <div class="chip-section">
+          <h3 class="chip-section-label">Jornada tarde</h3>
+          <div class="chip-grid" id="weekAfternoonChips"></div>
+        </div>
+      </div>
+
       <p class="muted-note">
         Para reagendar a una semana distinta, contacta al <strong>WhatsApp del proyecto</strong>.
       </p>
@@ -1785,21 +1939,88 @@ function selectSlot(date, hour, minute, key) {
 }
 
 // =====================================================================
-// Chip render for the assigned-day view.
+// Chip render for the assigned-day view (delegates to shared helper).
 // =====================================================================
 function renderDayChips(date) {
+  renderHourChipsInto_(date, 'morningChips', 'afternoonChips');
+}
+
+// =====================================================================
+// Week-fallback flow: two sub-steps.
+//   A) renderWeekDayPicker(monday) — chips para Lun–Vie (excepto festivos)
+//   B) renderWeekHoursPicker(date) — chips de horas (igual estilo que día asignado)
+// =====================================================================
+
+// Returns count of half-hour slots with cupos > 0 (and not past) for a given day.
+function countAvailableSlotsOnDay_(date) {
+  const now = nowInBogota();
+  if (!isInWindow(date)) return 0;
+  let n = 0;
+  for (const s of getTimeSlots()) {
+    const sd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), s.hour, s.minute);
+    if (sd.getTime() <= now.getTime()) continue;
+    if (cuposLeftToStart(date, s.hour, s.minute) > 0) n++;
+  }
+  return n;
+}
+
+function renderWeekDayPicker(monday) {
+  document.getElementById('weekFallbackLabel').textContent = formatWeekRange(monday);
+  document.getElementById('weekDaysPicker').hidden = false;
+  document.getElementById('weekHoursPicker').hidden = true;
+  const wrap = document.getElementById('weekDaysChips');
+  wrap.innerHTML = '';
+  const days = [0,1,2,3,4].map(i => addDays(monday, i));
+  for (const d of days) {
+    const isInWin = isInWindow(d);
+    const availCount = countAvailableSlotsOnDay_(d);
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip day-chip';
+    chip.innerHTML =
+      `<span class="day-chip-name">${DAY_NAMES[d.getDay()]}</span>` +
+      `<span class="day-chip-date">${d.getDate()} ${MONTH_ABBR[d.getMonth()]}</span>` +
+      `<span class="day-chip-meta"></span>`;
+    const meta = chip.querySelector('.day-chip-meta');
+    if (!isInWin) {
+      chip.classList.add('past'); chip.disabled = true;
+      meta.textContent = 'No disponible';
+    } else if (availCount === 0) {
+      chip.classList.add('full'); chip.disabled = true;
+      meta.textContent = 'Sin cupo';
+    } else {
+      if (availCount <= 4) chip.classList.add('low');
+      else if (availCount <= 12) chip.classList.add('partial');
+      meta.textContent = `${availCount} ${availCount === 1 ? 'horario' : 'horarios'}`;
+      chip.addEventListener('click', () => {
+        renderWeekHoursPicker(d);
+      });
+    }
+    wrap.appendChild(chip);
+  }
+}
+
+function renderWeekHoursPicker(date) {
+  document.getElementById('weekDaysPicker').hidden = true;
+  document.getElementById('weekHoursPicker').hidden = false;
+  document.getElementById('pickedDayLabel').textContent = formatDateLongShort(date);
+  // Render chips into the week-fallback morning/afternoon containers
+  // (reuses the same chip building code as the assigned-date view).
+  renderHourChipsInto_(date, 'weekMorningChips', 'weekAfternoonChips');
+}
+
+// Shared chip-rendering routine, can target any pair of mañana/tarde containers.
+function renderHourChipsInto_(date, morningId, afternoonId) {
   const slots = getTimeSlots();
   const now = nowInBogota();
-  const morningEl = document.getElementById('morningChips');
-  const afternoonEl = document.getElementById('afternoonChips');
-  morningEl.innerHTML = '';
-  afternoonEl.innerHTML = '';
+  const morningEl = document.getElementById(morningId);
+  const afternoonEl = document.getElementById(afternoonId);
+  morningEl.innerHTML = ''; afternoonEl.innerHTML = '';
   for (const s of slots) {
     const slotDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), s.hour, s.minute);
     const isPast = slotDate.getTime() <= now.getTime();
     const key = slotKey(date, s.hour, s.minute);
     const left = cuposLeftToStart(date, s.hour, s.minute);
-
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'chip';
@@ -1807,14 +2028,11 @@ function renderDayChips(date) {
     chip.innerHTML =
       `<span class="chip-time">${formatTimeRange(s.hour, s.minute)}</span>` +
       `<span class="chip-cupos"></span>`;
-
     if (isPast) {
-      chip.classList.add('past');
-      chip.disabled = true;
+      chip.classList.add('past'); chip.disabled = true;
       chip.querySelector('.chip-cupos').textContent = '—';
     } else if (left === 0) {
-      chip.classList.add('full');
-      chip.disabled = true;
+      chip.classList.add('full'); chip.disabled = true;
       chip.querySelector('.chip-cupos').textContent = 'Sin cupo';
     } else {
       if (left <= 1) chip.classList.add('low');
@@ -1824,69 +2042,6 @@ function renderDayChips(date) {
     }
     (s.hour < 12 ? morningEl : afternoonEl).appendChild(chip);
   }
-}
-
-// =====================================================================
-// Mini-week render for the week-fallback view (no nav buttons).
-// Reuses the existing renderCalendar grid styles by directly building cells.
-// =====================================================================
-function renderMiniWeek(monday) {
-  const body = document.getElementById('weekFallbackBody');
-  document.getElementById('weekFallbackLabel').textContent = formatWeekRange(monday);
-  const now = nowInBogota();
-  const days = [0,1,2,3,4].map(i => addDays(monday, i));
-  const slots = getTimeSlots();
-
-  const grid = document.createElement('div');
-  grid.className = 'grid';
-
-  // Header row
-  const corner = document.createElement('div');
-  corner.className = 'grid-cell corner-cell';
-  grid.appendChild(corner);
-  days.forEach(d => {
-    const isToday = d.toDateString() === now.toDateString();
-    const cell = document.createElement('div');
-    cell.className = 'grid-cell day-header' + (isToday ? ' today' : '');
-    cell.innerHTML =
-      `<div class="day-name">${DAY_NAMES[d.getDay()]}</div>` +
-      `<div class="day-num">${d.getDate()} ${MONTH_ABBR[d.getMonth()]}</div>`;
-    grid.appendChild(cell);
-  });
-
-  // Time-slot rows
-  slots.forEach(s => {
-    const timeCell = document.createElement('div');
-    timeCell.className = 'grid-cell time-label';
-    timeCell.textContent = formatTime(s.hour, s.minute);
-    grid.appendChild(timeCell);
-    days.forEach(d => {
-      const cell = document.createElement('div');
-      cell.className = 'grid-cell';
-      const slotDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), s.hour, s.minute);
-      const isPast = slotDate.getTime() <= now.getTime();
-      const outsideWindow = !isInWindow(d);
-      const key = slotKey(d, s.hour, s.minute);
-      const left = cuposLeftToStart(d, s.hour, s.minute);
-      const btn = document.createElement('button');
-      btn.type = 'button'; btn.className = 'slot';
-      if (outsideWindow || isPast) {
-        btn.classList.add('past'); btn.disabled = true;
-      } else if (left === 0) {
-        btn.classList.add('full'); btn.disabled = true; btn.textContent = 'Sin cupo';
-      } else {
-        if (left <= 1) btn.classList.add('low');
-        else if (left <= 3) btn.classList.add('partial');
-        btn.textContent = `${left} ${left === 1 ? 'cupo' : 'cupos'}`;
-        btn.addEventListener('click', () => selectSlot(d, s.hour, s.minute, key));
-      }
-      cell.appendChild(btn);
-      grid.appendChild(cell);
-    });
-  });
-
-  body.innerHTML = '';
-  body.appendChild(grid);
 }
 
 // Helper to format week range (used by mini-week header + the dropdown removal).
@@ -2286,11 +2441,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const assignedDate = getAssignedDateFor(sel);
     if (!assignedDate) return;
     const monday = startOfWeekMonday(assignedDate);
-    renderMiniWeek(monday);
+    renderWeekDayPicker(monday);
     showStep2View('week-fallback');
   });
   document.getElementById('hideWeekBtn').addEventListener('click', () => {
     showStep2View('day-chips');
+  });
+  document.getElementById('backToDayPickerBtn').addEventListener('click', () => {
+    // Re-render days (so the user can pick a different one)
+    const sel = getSelectedColegio();
+    if (!sel) return;
+    const assignedDate = getAssignedDateFor(sel);
+    if (!assignedDate) return;
+    renderWeekDayPicker(startOfWeekMonday(assignedDate));
   });
 
   // --- Full-calendar fallback nav (only used when no assignment) ---
