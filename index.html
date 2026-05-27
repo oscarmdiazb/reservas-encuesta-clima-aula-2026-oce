@@ -747,33 +747,29 @@
   .how-text strong { color: var(--text); font-weight: 800; }
   .how-text em { font-style: normal; color: var(--primary); font-weight: 700; }
 
-  .consent-cta {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 16px;
-    padding: 14px 16px;
+  /* Inline download link inside step 5 */
+  .inline-download {
+    display: inline-block;
+    margin-left: 6px;
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .inline-download:hover { color: var(--primary-hover); }
+
+  /* Discreet "why send the consent" note under step 5 */
+  .consent-why {
+    margin-top: 6px;
+    padding: 8px 10px;
     background: #fef3c7;
-    border: 1px solid #fcd34d;
-    border-radius: 10px;
-    text-decoration: none;
-    color: #78350f;
-    transition: background 0.15s, transform 0.1s;
-  }
-  .consent-cta:hover { background: #fde68a; }
-  .consent-cta:active { transform: scale(0.99); }
-  .consent-cta .cta-icon { font-size: 22px; flex-shrink: 0; }
-  .consent-cta .cta-body { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-  .consent-cta .cta-title {
-    font-size: 14px; font-weight: 800; letter-spacing: -0.005em;
-    color: #78350f;
-  }
-  .consent-cta .cta-sub {
-    font-size: 12.5px; font-weight: 600; color: #92400e; line-height: 1.35;
-  }
-  .consent-cta .cta-sub strong { font-weight: 800; }
-  .consent-cta .cta-arrow {
-    font-size: 18px; font-weight: 800; color: #78350f; flex-shrink: 0;
+    border-left: 3px solid #fcd34d;
+    border-radius: 6px;
+    color: #92400e;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.4;
   }
 
   .whatsapp-cta {
@@ -1254,15 +1250,17 @@
           <strong>Los materiales para la encuesta los lleva el equipo encuestador.</strong> Por favor garantizar acceso al salón en la fecha y hora reservadas.
         </div>
       </li>
+      <li>
+        <div class="how-icon" aria-hidden="true">5</div>
+        <div class="how-text">
+          <strong>Recuerda enviar el consentimiento informado a los acudientes.</strong>
+          <a href="consentimiento.pdf?v=1" download="consentimiento-encuesta-clima-aula.pdf" class="inline-download">Descárgalo aquí ⬇</a>
+          <div class="consent-why">
+            Es importante que los acudientes tengan la oportunidad de decir que no, en caso de que no quieran que sus hijos sean encuestados.
+          </div>
+        </div>
+      </li>
     </ol>
-    <a class="consent-cta" href="consentimiento.pdf?v=1" download="consentimiento-encuesta-clima-aula.pdf">
-      <span class="cta-icon" aria-hidden="true">📄</span>
-      <span class="cta-body">
-        <span class="cta-title">Consentimiento informado · descargar PDF</span>
-        <span class="cta-sub">Envíalo a los acudientes del aula <strong>antes</strong> de la encuesta.</span>
-      </span>
-      <span class="cta-arrow" aria-hidden="true">⬇</span>
-    </a>
 
     <a class="whatsapp-cta" href="https://wa.me/573019597822" target="_blank" rel="noopener">
       <span class="wa-icon" aria-hidden="true">💬</span>
