@@ -878,7 +878,7 @@
   }
   .chip-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 8px;
   }
   .chip {
@@ -886,22 +886,23 @@
     color: var(--available-text);
     border: 0;
     border-radius: 10px;
-    padding: 10px 8px;
+    padding: 10px 6px;
     font-family: inherit;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 13px;
     cursor: pointer;
     text-align: center;
     transition: transform 0.1s, box-shadow 0.15s;
-    line-height: 1.15;
-    min-height: 56px;
+    line-height: 1.2;
+    min-height: 58px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 3px;
+    white-space: nowrap;
   }
-  .chip-time { font-size: 14px; font-weight: 800; }
+  .chip-time { font-size: 13px; font-weight: 800; letter-spacing: -0.01em; }
   .chip-cupos { font-size: 11px; font-weight: 600; opacity: 0.85; }
   .chip:hover:not(:disabled) {
     transform: translateY(-1px);
@@ -943,6 +944,8 @@
     gap: 14px;
     align-items: flex-start;
   }
+  /* Critical: HTML `hidden` attribute must override display:flex above */
+  .already-booked[hidden] { display: none !important; }
   .already-booked-icon {
     width: 32px; height: 32px;
     border-radius: 50%;
@@ -1017,9 +1020,10 @@
     .step-card { padding: 18px 16px; }
     .step-head h2 { font-size: 16px; }
     .assigned-banner-date { font-size: 18px; }
-    .chip-grid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
-    .chip { padding: 8px 4px; min-height: 50px; }
-    .chip-time { font-size: 13px; }
+    .chip-grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+    .chip { padding: 8px 4px; min-height: 52px; }
+    .chip-time { font-size: 12px; }
+    .chip-cupos { font-size: 10.5px; }
     .calendar-header { padding: 12px 14px; }
     .legend { padding: 10px 14px; gap: 10px; }
     .week-label { font-size: 14px; }
@@ -1444,6 +1448,19 @@ function endTime(hour, minute) {
   return formatTime(Math.floor(total / 60), total % 60);
 }
 
+// "7:00–9:00 a.m." when both ends share a period, otherwise "11:30 a.m.–1:30 p.m.".
+// Used for chip labels so schools see the full 2-hour block.
+function formatTimeRange(hour, minute) {
+  const s = formatTime(hour, minute);
+  const e = endTime(hour, minute);
+  const mS = s.match(/^(.*?)\s+(a\.m\.|p\.m\.)$/);
+  const mE = e.match(/^(.*?)\s+(a\.m\.|p\.m\.)$/);
+  if (mS && mE && mS[2] === mE[2]) {
+    return `${mS[1]}–${mE[1]} ${mE[2]}`;
+  }
+  return `${s}–${e}`;
+}
+
 function getTimeSlots() {
   const slots = [];
   for (let h = FIRST_START_HOUR; h <= LAST_START_HOUR; h++) {
@@ -1788,7 +1805,7 @@ function renderDayChips(date) {
     chip.className = 'chip';
     chip.id = 'chip-' + key.replace(/[: -]/g, '');
     chip.innerHTML =
-      `<span class="chip-time">${formatTime(s.hour, s.minute)}</span>` +
+      `<span class="chip-time">${formatTimeRange(s.hour, s.minute)}</span>` +
       `<span class="chip-cupos"></span>`;
 
     if (isPast) {
