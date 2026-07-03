@@ -1013,6 +1013,78 @@
   .reservations-table .col-fecha-sel { font-weight: 700; }
   .reservations-table .muted-cell { color: var(--muted); font-style: italic; }
 
+  /* ----- Month calendar view (internal monitoring) ----- */
+  .calendar-view-body { padding: 16px 20px 20px; overflow-x: auto; }
+  .month-block { margin-bottom: 26px; min-width: 640px; }
+  .month-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+    text-transform: capitalize;
+    margin: 0 0 10px;
+    padding: 8px 12px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 8px;
+    letter-spacing: 0.02em;
+  }
+  .month-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+  }
+  .mc-dow {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 6px 0;
+    background: var(--bg);
+    border-radius: 6px;
+  }
+  .mc-cell {
+    min-height: 76px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px;
+    background: var(--card);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .mc-cell-empty { background: repeating-linear-gradient(45deg, #fafafa, #fafafa 5px, #f3f4f6 5px, #f3f4f6 10px); border-color: transparent; }
+  .mc-cell-outside { background: #fbfbfb; }
+  .mc-daynum { font-size: 11px; font-weight: 800; color: var(--muted); }
+  .mc-today .mc-daynum { color: var(--primary); }
+  .mc-today { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) inset; }
+  .mc-chip {
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 1.15;
+    padding: 3px 5px;
+    border-radius: 5px;
+    border: 1px solid rgba(0,0,0,0.06);
+    white-space: normal;
+    word-break: break-word;
+  }
+  /* Color by jornada */
+  .mc-chip.j-manana { background: #fde4d0; color: #7c2d12; }  /* mañana / única */
+  .mc-chip.j-tarde  { background: #d6e9fb; color: #0c3d68; }  /* tarde */
+  .mc-chip .mc-chip-aula { font-weight: 800; opacity: 0.85; }
+  .mc-legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .mc-legend-item { display: flex; align-items: center; gap: 6px; }
+  .mc-legend-swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.06); }
+
   .reservations-table .col-icon {
     width: 28px;
     text-align: center;
@@ -1592,6 +1664,20 @@
       <span class="reservations-chevron">▾</span>
     </summary>
     <div class="reservations-body" id="reservationsBody">
+      <div class="reservations-empty">Cargando…</div>
+    </div>
+  </details>
+
+  <!-- Vista de calendario mensual (monitoreo interno) -->
+  <details class="reservations-card" id="calendarViewCard">
+    <summary>
+      <span class="reservations-summary-text">
+        <strong>Vista de calendario</strong>
+        <span class="reservations-summary" id="calendarViewSummary">monitoreo interno</span>
+      </span>
+      <span class="reservations-chevron">▾</span>
+    </summary>
+    <div class="calendar-view-body" id="monthCalendarBody">
       <div class="reservations-empty">Cargando…</div>
     </div>
   </details>
@@ -2805,6 +2891,7 @@ async function refresh() {
     assignments = (data && data.assignments) || {};
     renderCalendar();
     renderReservationsTable();
+    renderMonthCalendars();
   } catch (err) {
     body.innerHTML = `
       <div class="status" style="color:var(--error)">
@@ -2813,6 +2900,87 @@ async function refresh() {
       </div>`;
     document.getElementById('retryBtn').addEventListener('click', refresh);
   }
+}
+
+// ----- Month calendar view (internal monitoring) -----
+// Renders one Mon–Fri month grid per month spanned by the window, with each
+// reservation shown as a chip colored by jornada (mañana/única vs tarde).
+function renderMonthCalendars() {
+  const container = document.getElementById('monthCalendarBody');
+  const summaryEl = document.getElementById('calendarViewSummary');
+  if (!container) return;
+
+  // Build date → reservations map from bookingDetails.
+  const byDate = {};
+  let total = 0;
+  for (const slotK of Object.keys(bookingDetails)) {
+    const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(slotK);
+    if (!m) continue;
+    const dateStr = `${m[1]}-${m[2]}-${m[3]}`;
+    const list = bookingDetails[slotK] || [];
+    for (const r of list) {
+      (byDate[dateStr] = byDate[dateStr] || []).push({
+        colegio: r.colegio || '', jornada: r.jornada || '', clase: r.clase || '',
+        localidad: r.localidad || '', hour: +m[4], minute: +m[5]
+      });
+      total++;
+    }
+  }
+  summaryEl.textContent = `${total} reserva${total === 1 ? '' : 's'} en el calendario`;
+
+  // Months spanned by the window.
+  const months = [];
+  let cur = new Date(WINDOW_START.getFullYear(), WINDOW_START.getMonth(), 1);
+  const lastMonth = new Date(WINDOW_END.getFullYear(), WINDOW_END.getMonth(), 1);
+  while (cur.getTime() <= lastMonth.getTime()) {
+    months.push(new Date(cur.getFullYear(), cur.getMonth(), 1));
+    cur.setMonth(cur.getMonth() + 1);
+  }
+
+  const now = nowInBogota();
+  const DOW = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+
+  let html =
+    '<div class="mc-legend">' +
+    '<div class="mc-legend-item"><span class="mc-legend-swatch" style="background:#fde4d0"></span>Mañana / Única</div>' +
+    '<div class="mc-legend-item"><span class="mc-legend-swatch" style="background:#d6e9fb"></span>Tarde</div>' +
+    '</div>';
+
+  for (const monthStart of months) {
+    const y = monthStart.getFullYear(), mo = monthStart.getMonth();
+    const monthLabel = `${MONTH_NAMES[mo]} ${y}`;
+    html += `<div class="month-block"><div class="month-title">${monthLabel}</div><div class="month-grid">`;
+    html += DOW.map(d => `<div class="mc-dow">${d}</div>`).join('');
+
+    // Weeks: from the Monday on/before the 1st, until the Monday passes month end.
+    const monthEnd = new Date(y, mo + 1, 0);
+    let weekMon = startOfWeekMonday(new Date(y, mo, 1));
+    while (weekMon.getTime() <= monthEnd.getTime()) {
+      for (const d of [0,1,2,3,4].map(i => addDays(weekMon, i))) {
+        const inMonth = d.getMonth() === mo && d.getFullYear() === y;
+        if (!inMonth) { html += '<div class="mc-cell mc-cell-empty"></div>'; continue; }
+        const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        const isToday = d.toDateString() === now.toDateString();
+        const cellCls = ['mc-cell'];
+        if (isToday) cellCls.push('mc-today');
+        if (!isInWindow(d)) cellCls.push('mc-cell-outside');
+        const items = (byDate[dateStr] || []).slice().sort((a,b) =>
+          (a.hour*60+a.minute) - (b.hour*60+b.minute));
+        let chips = '';
+        for (const it of items) {
+          const cls = /TARDE/i.test(it.jornada) ? 'j-tarde' : 'j-manana';
+          const name = shortColegio(it.colegio);
+          chips += `<div class="mc-chip ${cls}" title="${escapeHtml_(it.colegio)} · ${escapeHtml_(it.jornada)} · Aula ${escapeHtml_(it.clase)} · ${formatTime(it.hour,it.minute)}">` +
+                   `${escapeHtml_(name)} <span class="mc-chip-aula">${escapeHtml_(it.clase)}</span></div>`;
+        }
+        html += `<div class="${cellCls.join(' ')}"><div class="mc-daynum">${d.getDate()}</div>${chips}</div>`;
+      }
+      weekMon = addDays(weekMon, 7);
+    }
+    html += '</div></div>';
+  }
+
+  container.innerHTML = html;
 }
 
 // ----- Init -----
