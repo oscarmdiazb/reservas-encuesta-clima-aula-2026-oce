@@ -1072,7 +1072,12 @@
   /* Color by jornada */
   .mc-chip.j-manana { background: #fde4d0; color: #7c2d12; }  /* mañana / única */
   .mc-chip.j-tarde  { background: #d6e9fb; color: #0c3d68; }  /* tarde */
+  .mc-chip.j-pending {                                          /* asignado, sin reservar */
+    background: #f3f4f6; color: #9ca3af;
+    border-style: dashed; border-color: #d1d5db;
+  }
   .mc-chip .mc-chip-aula { font-weight: 800; opacity: 0.85; }
+  .mc-chip .mc-chip-time { font-weight: 800; opacity: 0.7; margin-right: 3px; }
   .mc-legend {
     display: flex;
     gap: 16px;
@@ -2910,8 +2915,15 @@ function renderMonthCalendars() {
   const summaryEl = document.getElementById('calendarViewSummary');
   if (!container) return;
 
-  // Build date → reservations map from bookingDetails.
+  // Compact time for chips: "7:00a" / "1:30p"
+  function compactTime(h, mi) {
+    const h12 = ((h + 11) % 12) + 1;
+    return `${h12}:${pad(mi)}${h < 12 ? 'a' : 'p'}`;
+  }
+
+  // Build date → confirmed reservations map from bookingDetails.
   const byDate = {};
+  const reservedKeys = new Set();
   let total = 0;
   for (const slotK of Object.keys(bookingDetails)) {
     const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(slotK);
@@ -2923,10 +2935,35 @@ function renderMonthCalendars() {
         colegio: r.colegio || '', jornada: r.jornada || '', clase: r.clase || '',
         localidad: r.localidad || '', hour: +m[4], minute: +m[5]
       });
+      if (r.dane) reservedKeys.add([String(r.dane).trim(),
+        String(r.jornada||'').trim(), String(r.clase||'').trim()].join('|'));
       total++;
     }
   }
-  summaryEl.textContent = `${total} reserva${total === 1 ? '' : 's'} en el calendario`;
+
+  // Build date → PENDING map: aulas that have an assigned date but no confirmed
+  // reservation yet. Look up colegio info from SCHOOLS_BY_LOCALIDAD.
+  const pendingByDate = {};
+  let pendingCount = 0;
+  for (const loc of Object.keys(SCHOOLS_BY_LOCALIDAD)) {
+    for (const a of SCHOOLS_BY_LOCALIDAD[loc]) {
+      const key = [String(a.dane||'').trim(), String(a.jornada||'').trim(), String(a.clase||'').trim()].join('|');
+      const assignedStr = assignments[key];
+      if (!assignedStr) continue;                 // no assignment → skip
+      if (reservedKeys.has(key)) continue;        // already reserved → not pending
+      const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(assignedStr);
+      if (!dm) continue;
+      const dateStr = assignedStr;
+      (pendingByDate[dateStr] = pendingByDate[dateStr] || []).push({
+        colegio: a.colegio || '', jornada: a.jornada || '', clase: a.clase || ''
+      });
+      pendingCount++;
+    }
+  }
+
+  summaryEl.textContent =
+    `${total} confirmada${total === 1 ? '' : 's'}` +
+    (pendingCount ? ` · ${pendingCount} pendiente${pendingCount === 1 ? '' : 's'}` : '');
 
   // Months spanned by the window.
   const months = [];
@@ -2944,6 +2981,7 @@ function renderMonthCalendars() {
     '<div class="mc-legend">' +
     '<div class="mc-legend-item"><span class="mc-legend-swatch" style="background:#fde4d0"></span>Mañana / Única</div>' +
     '<div class="mc-legend-item"><span class="mc-legend-swatch" style="background:#d6e9fb"></span>Tarde</div>' +
+    '<div class="mc-legend-item"><span class="mc-legend-swatch" style="background:#f3f4f6;border-style:dashed;border-color:#d1d5db"></span>Asignado sin reservar</div>' +
     '</div>';
 
   for (const monthStart of months) {
@@ -2967,11 +3005,20 @@ function renderMonthCalendars() {
         const items = (byDate[dateStr] || []).slice().sort((a,b) =>
           (a.hour*60+a.minute) - (b.hour*60+b.minute));
         let chips = '';
+        // Confirmed reservations (colored by jornada, with time)
         for (const it of items) {
           const cls = /TARDE/i.test(it.jornada) ? 'j-tarde' : 'j-manana';
           const name = shortColegio(it.colegio);
-          chips += `<div class="mc-chip ${cls}" title="${escapeHtml_(it.colegio)} · ${escapeHtml_(it.jornada)} · Aula ${escapeHtml_(it.clase)} · ${formatTime(it.hour,it.minute)}">` +
-                   `${escapeHtml_(name)} <span class="mc-chip-aula">${escapeHtml_(it.clase)}</span></div>`;
+          chips += `<div class="mc-chip ${cls}" title="${escapeHtml_(it.colegio)} · ${escapeHtml_(it.jornada)} · Aula ${escapeHtml_(it.clase)} · ${formatTime(it.hour,it.minute)} – ${endTime(it.hour,it.minute)}">` +
+                   `<span class="mc-chip-time">${compactTime(it.hour,it.minute)}</span>${escapeHtml_(name)} <span class="mc-chip-aula">${escapeHtml_(it.clase)}</span></div>`;
+        }
+        // Pending (assigned but not reserved) — gray dashed chips
+        const pend = (pendingByDate[dateStr] || []).slice().sort((a,b) =>
+          a.colegio.localeCompare(b.colegio));
+        for (const p of pend) {
+          const name = shortColegio(p.colegio);
+          chips += `<div class="mc-chip j-pending" title="SIN RESERVAR · ${escapeHtml_(p.colegio)} · ${escapeHtml_(p.jornada)} · Aula ${escapeHtml_(p.clase)}">` +
+                   `${escapeHtml_(name)} <span class="mc-chip-aula">${escapeHtml_(p.clase)}</span></div>`;
         }
         html += `<div class="${cellCls.join(' ')}"><div class="mc-daynum">${d.getDate()}</div>${chips}</div>`;
       }
