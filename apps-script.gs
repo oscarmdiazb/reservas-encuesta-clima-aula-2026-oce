@@ -182,13 +182,22 @@ function getCurrentData_() {
     if (!key) continue;
     counts[key] = (counts[key] || 0) + 1;
     if (!details[key]) details[key] = [];
+    // Booking creation timestamp (column A) → "YYYY-MM-DD HH:mm" (Bogota).
+    let ts = '';
+    const tsRaw = row[0];
+    if (Object.prototype.toString.call(tsRaw) === '[object Date]') {
+      ts = Utilities.formatDate(tsRaw, TIMEZONE, 'yyyy-MM-dd HH:mm');
+    } else if (tsRaw) {
+      ts = String(tsRaw).trim();
+    }
     details[key].push({
       localidad: String(row[2] || ''),
       colegio:   String(row[3] || ''),
       jornada:   String(row[4] || ''),
       clase:     String(row[5] || ''),
       sede:      String(row[6] || ''),
-      dane:      String(row[7] || ''),  // sede DANE (14-digit) — used as part of aulaKey
+      dane:      String(row[7] || ''),  // sede DANE — used as part of aulaKey
+      ts:        ts,                     // when the booking was submitted
       // Note: contact + phone are intentionally NOT exposed via the public GET.
     });
   }
@@ -403,4 +412,196 @@ function setup() {
   asignaciones.getRange('F1:H1').setBackground('#fef3c7');
 
   Logger.log('Setup complete. Sheets "%s" and "%s" are ready.', SHEET_NAME, ASSIGNMENTS_SHEET_NAME);
+}
+
+// =====================================================================
+// LISTA DE LLAMADAS — prioritized call list of aulas that have NOT
+// reserved yet, sorted by how soon their assigned date is.
+// =====================================================================
+// Reads: Asignaciones (aula → fecha), Reservas (who reserved),
+//        Contactos (aula → contacto/celular/gestor).
+// Writes: a "Llamadas" tab, sorted by fecha asignada, color-coded by urgency.
+//
+// Run it from the "OCE-SED" custom menu, or set a daily trigger with
+// crearTriggerDiarioLlamadas(). No web-app redeploy needed.
+
+const CONTACTS_SHEET_NAME = 'Contactos';
+const CALLS_SHEET_NAME    = 'Llamadas';
+
+// Adds a custom menu when the spreadsheet opens.
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('OCE-SED')
+    .addItem('🔄 Actualizar lista de llamadas', 'actualizarLlamadas')
+    .addSeparator()
+    .addItem('⏰ Programar actualización diaria (7am)', 'crearTriggerDiarioLlamadas')
+    .addToUI();
+}
+
+function _aulaKey_(dane, jornada, clase) {
+  var d = String(dane || '').trim().replace(/\.0+$/, '');
+  return d + '|' + String(jornada || '').trim().toUpperCase() + '|' + String(clase || '').trim();
+}
+
+function actualizarLlamadas() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // --- Reserved aula keys (from Reservas) ---
+  var reserved = {};
+  var rSheet = ss.getSheetByName(SHEET_NAME);
+  if (rSheet && rSheet.getLastRow() > 1) {
+    // Columns: Timestamp|Slot|Localidad|Colegio|Jornada|Clase|Sede|DANE|Contacto|Teléfono
+    var rv = rSheet.getRange(2, 1, rSheet.getLastRow() - 1, 8).getValues();
+    for (var i = 0; i < rv.length; i++) {
+      var k = _aulaKey_(rv[i][7], rv[i][4], rv[i][5]);
+      var slot = rv[i][1];
+      if (Object.prototype.toString.call(slot) === '[object Date]') {
+        slot = Utilities.formatDate(slot, TIMEZONE, 'yyyy-MM-dd HH:mm');
+      }
+      reserved[k] = String(slot || '').trim();
+    }
+  }
+
+  // --- Contacts lookup ---
+  var contacts = {};
+  var cSheet = ss.getSheetByName(CONTACTS_SHEET_NAME);
+  if (cSheet && cSheet.getLastRow() > 1) {
+    // Columns: DANE|Jornada|Clase|Colegio|Localidad|Contacto|Rol|Celular|Gestor
+    var cv = cSheet.getRange(2, 1, cSheet.getLastRow() - 1, 9).getValues();
+    for (var j = 0; j < cv.length; j++) {
+      contacts[_aulaKey_(cv[j][0], cv[j][1], cv[j][2])] = {
+        localidad: cv[j][4], contacto: cv[j][5], rol: cv[j][6],
+        celular: String(cv[j][7] || '').replace(/\.0+$/, ''), gestor: cv[j][8]
+      };
+    }
+  }
+
+  // --- Assignments ---
+  var aSheet = ss.getSheetByName(ASSIGNMENTS_SHEET_NAME);
+  if (!aSheet || aSheet.getLastRow() <= 1) {
+    SpreadsheetApp.getUi().alert('No hay datos en la pestaña "Asignaciones".');
+    return;
+  }
+  // Columns: Colegio|Sede|Jornada|Clase|Fecha|Pair_ID|DANE|Brazo
+  var av = aSheet.getRange(2, 1, aSheet.getLastRow() - 1, 8).getValues();
+
+  // Which aulas (by pair) have reserved — to flag the partner's status.
+  var assignedByKey = {};
+  for (var a = 0; a < av.length; a++) {
+    assignedByKey[_aulaKey_(av[a][6], av[a][2], av[a][3])] = av[a];
+  }
+
+  // Today at midnight (Bogota)
+  var today = new Date(Utilities.formatDate(new Date(), TIMEZONE, 'yyyy/MM/dd'));
+
+  var pending = [];
+  for (var b = 0; b < av.length; b++) {
+    var row = av[b];
+    var colegio = row[0], sede = row[1], jornada = row[2], clase = row[3];
+    var fecha = row[4], pair = row[5], dane = row[6], brazo = row[7];
+    var key = _aulaKey_(dane, jornada, clase);
+    if (reserved[key]) continue; // already reserved → not a call target
+
+    // Normalize fecha → Date + string
+    var fechaStr, fechaDt;
+    if (Object.prototype.toString.call(fecha) === '[object Date]') {
+      fechaDt = fecha;
+      fechaStr = Utilities.formatDate(fecha, TIMEZONE, 'yyyy-MM-dd');
+    } else {
+      fechaStr = String(fecha || '').trim();
+      var mm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fechaStr);
+      fechaDt = mm ? new Date(+mm[1], +mm[2] - 1, +mm[3]) : null;
+    }
+    var dias = fechaDt ? Math.round((fechaDt.getTime() - today.getTime()) / 86400000) : '';
+
+    // Partner reservation status (same pair, other arm)
+    var partnerReserved = '';
+    for (var p in assignedByKey) {
+      var pr = assignedByKey[p];
+      if (pr[5] === pair && p !== key) {
+        partnerReserved = reserved[p] ? 'Sí' : 'No';
+        break;
+      }
+    }
+
+    var c = contacts[key] || {};
+    var prioridad =
+      (dias === '' ) ? '' :
+      (dias < 0)     ? '🔴 VENCIDA' :
+      (dias <= 3)    ? '🔴 URGENTE' :
+      (dias <= 7)    ? '🟠 Alta' :
+      (dias <= 14)   ? '🟡 Media' : 'Normal';
+
+    pending.push([
+      prioridad, fechaStr, dias, colegio, jornada, clase,
+      c.localidad || '', c.contacto || '', c.rol || '', c.celular || '',
+      c.gestor || '', pair, brazo, partnerReserved
+    ]);
+  }
+
+  // Sort by fecha asc (empty dates last), then colegio
+  pending.sort(function (x, y) {
+    var fx = x[1] || '9999', fy = y[1] || '9999';
+    if (fx !== fy) return fx < fy ? -1 : 1;
+    return String(x[3]).localeCompare(String(y[3]));
+  });
+
+  // --- Write the Llamadas tab ---
+  var out = ss.getSheetByName(CALLS_SHEET_NAME);
+  if (!out) out = ss.insertSheet(CALLS_SHEET_NAME);
+  out.clear();
+
+  var header = ['Prioridad', 'Fecha asignada', 'Días', 'Colegio', 'Jornada', 'Aula',
+                'Localidad', 'Contacto', 'Rol', 'Celular', 'Gestor/Dupla',
+                'Par', 'Brazo', '¿Par ya reservó?'];
+  out.getRange(1, 1, 1, header.length).setValues([header])
+     .setFontWeight('bold').setBackground('#0f4c81').setFontColor('#ffffff');
+  out.setFrozenRows(1);
+
+  var stamp = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd HH:mm');
+  if (pending.length) {
+    out.getRange(2, 1, pending.length, header.length).setValues(pending);
+    // Color rows by urgency
+    for (var r = 0; r < pending.length; r++) {
+      var dias = pending[r][2];
+      var bg = '#ffffff';
+      if (dias !== '') {
+        if (dias <= 3) bg = '#fecaca';        // red
+        else if (dias <= 7) bg = '#fed7aa';   // orange
+        else if (dias <= 14) bg = '#fef3c7';  // yellow
+      }
+      out.getRange(r + 2, 1, 1, header.length).setBackground(bg);
+    }
+    out.getRange('J2:J' + (pending.length + 1)).setNumberFormat('@'); // Celular as text
+  } else {
+    out.getRange(2, 1).setValue('🎉 Todas las aulas asignadas ya reservaron.');
+  }
+
+  // Column widths
+  var widths = [110, 120, 55, 260, 90, 60, 140, 200, 150, 120, 150, 100, 60, 120];
+  for (var w = 0; w < widths.length; w++) out.setColumnWidth(w + 1, widths[w]);
+
+  // Footer note with count + timestamp
+  var noteRow = pending.length + 3;
+  out.getRange(noteRow, 1).setValue(
+    pending.length + ' aula(s) sin reservar · actualizado ' + stamp);
+  out.getRange(noteRow, 1).setFontColor('#6b7280').setFontStyle('italic');
+
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    pending.length + ' aulas sin reservar', 'Lista de llamadas actualizada', 5);
+}
+
+// Creates a daily trigger (7am) that refreshes the Llamadas tab automatically.
+function crearTriggerDiarioLlamadas() {
+  // Remove existing triggers for this function to avoid duplicates
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'actualizarLlamadas') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+  ScriptApp.newTrigger('actualizarLlamadas')
+    .timeBased().atHour(7).everyDays(1)
+    .inTimezone(TIMEZONE).create();
+  SpreadsheetApp.getUi().alert('Listo. La lista de llamadas se actualizará automáticamente cada día a las 7am.');
 }

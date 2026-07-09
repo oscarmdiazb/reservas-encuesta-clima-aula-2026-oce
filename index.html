@@ -1090,6 +1090,16 @@
   .mc-legend-item { display: flex; align-items: center; gap: 6px; }
   .mc-legend-swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.06); }
 
+  .reservations-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .reservations-table th.sortable:hover {
+    background: #e5edf5;
+    color: var(--primary);
+  }
+
   .reservations-table .col-icon {
     width: 28px;
     text-align: center;
@@ -2778,6 +2788,16 @@ async function submitBooking() {
 // Flattens bookingDetails into a sorted array, counts per-colegio, and renders
 // the "Reservas actuales" table. Colegios with more than one reservation
 // (across any of their aulas) are flagged with ⚠️ and a tinted row.
+// Reservations table state (so header clicks can re-sort without refetching).
+let reservationsRows = [];
+let reservationsColegioCount = {};
+let reservationsSort = { col: 'reservedEl', dir: -1 }; // default: most recent booking first
+
+function shortDate_(d) {
+  if (!d) return '';
+  return `${DAY_NAMES[d.getDay()].slice(0,3)}. ${d.getDate()} ${MONTH_ABBR[d.getMonth()]}`;
+}
+
 function renderReservationsTable() {
   const body = document.getElementById('reservationsBody');
   const summary = document.getElementById('reservationsSummary');
@@ -2793,31 +2813,20 @@ function renderReservationsTable() {
       colegioCount[colegio] = (colegioCount[colegio] || 0) + 1;
       const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(slotK);
       const dateObj = m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+      // Booking creation timestamp "YYYY-MM-DD HH:mm"
+      const tm = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(r.ts || ''));
+      const tsObj = tm ? new Date(+tm[1], +tm[2]-1, +tm[3], +tm[4], +tm[5]) : null;
       rows.push({
-        slotK,
-        dateObj,
-        hour: m ? +m[4] : 0,
-        minute: m ? +m[5] : 0,
-        colegio,
-        sede: r.sede || '',
-        jornada: r.jornada || '',
-        clase: r.clase || '',
-        localidad: r.localidad || '',
-        dane: r.dane || ''
+        slotK, dateObj,
+        hour: m ? +m[4] : 0, minute: m ? +m[5] : 0,
+        colegio, sede: r.sede || '', jornada: r.jornada || '',
+        clase: r.clase || '', localidad: r.localidad || '', dane: r.dane || '',
+        ts: String(r.ts || ''), tsObj
       });
     }
   }
 
-  // Sort: by colegio (case-insensitive), then by date+time
-  rows.sort((a, b) => {
-    const ca = (a.colegio || '').toLowerCase();
-    const cb = (b.colegio || '').toLowerCase();
-    if (ca !== cb) return ca < cb ? -1 : 1;
-    return a.slotK < b.slotK ? -1 : a.slotK > b.slotK ? 1 : 0;
-  });
-
   const totalRes = rows.length;
-  const totalColegios = Object.keys(colegioCount).length;
   const dupCount = Object.values(colegioCount).filter(n => n > 1).length;
 
   if (!totalRes) {
@@ -2826,15 +2835,10 @@ function renderReservationsTable() {
     return;
   }
 
-  // Per-row discrepancy classification (against the Asignaciones map).
-  // Levels: 'match' (same day) | 'soft' (same week, different day) |
-  //         'hard' (different week) | 'none' (no assignment for this aula)
-  // Uses DANE-based key (same as aulaKeyFor) so it matches the backend.
+  // Discrepancy classification (assigned vs selected date).
   function classifyDiscrepancy(row) {
     if (!row.dane) return { level: 'none', assignedDate: null, deltaDays: null };
-    const key = [String(row.dane).trim(),
-                 String(row.jornada || '').trim(),
-                 String(row.clase || '').trim()].join('|');
+    const key = [String(row.dane).trim(), String(row.jornada || '').trim(), String(row.clase || '').trim()].join('|');
     const assignedStr = assignments[key];
     if (!assignedStr || !row.dateObj) return { level: 'none', assignedDate: null, deltaDays: null };
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(assignedStr);
@@ -2846,35 +2850,73 @@ function renderReservationsTable() {
     return { level: sameWeek ? 'soft' : 'hard', assignedDate, deltaDays };
   }
 
-  // Per-row classification + summary counters
-  const summaryCounters = { match: 0, soft: 0, hard: 0, none: 0 };
-  for (const r of rows) {
-    const c = classifyDiscrepancy(r);
-    r._disc = c;
-    summaryCounters[c.level]++;
-  }
+  const counters = { match: 0, soft: 0, hard: 0, none: 0 };
+  for (const r of rows) { r._disc = classifyDiscrepancy(r); counters[r._disc.level]++; }
 
   const sumParts = [`${totalRes} reserva${totalRes === 1 ? '' : 's'}`];
-  if (summaryCounters.match) sumParts.push(`<span style="color:#065f46">✓ ${summaryCounters.match} en su fecha</span>`);
-  if (summaryCounters.soft)  sumParts.push(`<span style="color:#92400e">⚠ ${summaryCounters.soft} otro día (misma semana)</span>`);
-  if (summaryCounters.hard)  sumParts.push(`<span style="color:#9a3412">⚠⚠ ${summaryCounters.hard} otra semana</span>`);
-  if (summaryCounters.none)  sumParts.push(`<span style="color:#6b7280">${summaryCounters.none} sin asignar</span>`);
+  if (counters.match) sumParts.push(`<span style="color:#065f46">✓ ${counters.match} en su fecha</span>`);
+  if (counters.soft)  sumParts.push(`<span style="color:#92400e">⚠ ${counters.soft} otro día (misma semana)</span>`);
+  if (counters.hard)  sumParts.push(`<span style="color:#9a3412">⚠⚠ ${counters.hard} otra semana</span>`);
+  if (counters.none)  sumParts.push(`<span style="color:#6b7280">${counters.none} sin asignar</span>`);
   if (dupCount) sumParts.push(`${dupCount} colegio${dupCount===1?'':'s'} con +1 reserva`);
   summary.innerHTML = sumParts.join(' · ');
 
-  function shortDate(d) {
-    if (!d) return '';
-    return `${DAY_NAMES[d.getDay()].slice(0,3)}. ${d.getDate()} ${MONTH_ABBR[d.getMonth()]}`;
-  }
+  reservationsRows = rows;
+  reservationsColegioCount = colegioCount;
+  renderReservationsTableBody();
+}
+
+// Sort comparators per column id.
+const RESV_SORTKEYS = {
+  colegio:     r => (r.colegio || '').toLowerCase(),
+  localidad:   r => (r.localidad || '').toLowerCase(),
+  propuesta:   r => r._disc && r._disc.assignedDate ? r._disc.assignedDate.getTime() : Infinity,
+  seleccionada:r => r.dateObj ? r.dateObj.getTime() : Infinity,
+  delta:       r => (r._disc && r._disc.deltaDays != null) ? r._disc.deltaDays : Infinity,
+  reservedEl:  r => r.tsObj ? r.tsObj.getTime() : -Infinity,
+  hora:        r => r.hour * 60 + r.minute,
+};
+
+function setReservationsSort(col) {
+  if (reservationsSort.col === col) reservationsSort.dir *= -1;
+  else reservationsSort = { col, dir: 1 };
+  renderReservationsTableBody();
+}
+
+function renderReservationsTableBody() {
+  const body = document.getElementById('reservationsBody');
+  if (!body || !reservationsRows.length) return;
+  const colegioCount = reservationsColegioCount;
+
+  const rows = reservationsRows.slice();
+  const keyFn = RESV_SORTKEYS[reservationsSort.col] || RESV_SORTKEYS.colegio;
+  const dir = reservationsSort.dir;
+  rows.sort((a, b) => {
+    const ka = keyFn(a), kb = keyFn(b);
+    if (ka < kb) return -1 * dir;
+    if (ka > kb) return 1 * dir;
+    // tiebreak by colegio then slot
+    const ca = (a.colegio||'').toLowerCase(), cb = (b.colegio||'').toLowerCase();
+    if (ca !== cb) return ca < cb ? -1 : 1;
+    return a.slotK < b.slotK ? -1 : 1;
+  });
+
+  const cols = [
+    { id: null,          label: '',                  cls: 'col-icon' },
+    { id: 'colegio',     label: 'Colegio · Aula',    cls: '' },
+    { id: 'localidad',   label: 'Localidad',         cls: '' },
+    { id: 'propuesta',   label: 'Fecha propuesta',   cls: '' },
+    { id: 'seleccionada',label: 'Fecha seleccionada',cls: '' },
+    { id: 'delta',       label: 'Δ',                 cls: 'col-delta' },
+    { id: 'reservedEl',  label: 'Reservó el',        cls: '' },
+    { id: 'hora',        label: 'Hora',              cls: '' },
+  ];
+  const arrow = id => reservationsSort.col === id ? (reservationsSort.dir === 1 ? ' ▲' : ' ▼') : '';
 
   let html = '<table class="reservations-table"><thead><tr>' +
-    '<th class="col-icon" aria-label="Alertas"></th>' +
-    '<th>Colegio · Aula</th>' +
-    '<th>Localidad</th>' +
-    '<th>Fecha propuesta</th>' +
-    '<th>Fecha seleccionada</th>' +
-    '<th class="col-delta" title="Diferencia en días">Δ</th>' +
-    '<th>Hora</th>' +
+    cols.map(c => c.id
+      ? `<th class="sortable ${c.cls}" data-sort="${c.id}">${c.label}${arrow(c.id)}</th>`
+      : `<th class="${c.cls}"></th>`).join('') +
     '</tr></thead><tbody>';
 
   for (const r of rows) {
@@ -2883,13 +2925,19 @@ function renderReservationsTable() {
     if (r._disc.level === 'hard') icons.push('⚠️⚠️');
     else if (r._disc.level === 'soft') icons.push('⚠️');
     if (isDup) icons.push(`<span title="Este colegio tiene ${colegioCount[r.colegio]} reservas">×${colegioCount[r.colegio]}</span>`);
-    const reservedStr = shortDate(r.dateObj);
-    const assignedStr = r._disc.assignedDate ? shortDate(r._disc.assignedDate) : '<span class="muted-cell">—</span>';
+    const reservedStr = shortDate_(r.dateObj);
+    const assignedStr = r._disc.assignedDate ? shortDate_(r._disc.assignedDate) : '<span class="muted-cell">—</span>';
     const deltaStr = r._disc.deltaDays == null ? '—'
       : r._disc.deltaDays === 0 ? '<span class="delta-zero">0</span>'
       : (r._disc.deltaDays > 0 ? `+${r._disc.deltaDays}d` : `${r._disc.deltaDays}d`);
     const timeStr = `${formatTime(r.hour, r.minute)} – ${endTime(r.hour, r.minute)}`;
     const aulaLabel = `${r.jornada || ''}${r.jornada && r.clase ? ' · ' : ''}Aula ${r.clase || ''}`;
+    // "Reservó el" = booking timestamp
+    let tsStr = '<span class="muted-cell">—</span>', tsTitle = '';
+    if (r.tsObj) {
+      tsStr = `${r.tsObj.getDate()} ${MONTH_ABBR[r.tsObj.getMonth()]}`;
+      tsTitle = ` title="${escapeHtml_(r.ts)}"`;
+    }
     const rowCls = ['disc-' + r._disc.level];
     if (isDup) rowCls.push('dup');
     html += `<tr class="${rowCls.join(' ')}">` +
@@ -2900,11 +2948,17 @@ function renderReservationsTable() {
       `<td class="col-fecha">${assignedStr}</td>` +
       `<td class="col-fecha col-fecha-sel">${escapeHtml_(reservedStr)}</td>` +
       `<td class="col-delta">${deltaStr}</td>` +
+      `<td class="col-fecha"${tsTitle}>${tsStr}</td>` +
       `<td class="col-hora">${escapeHtml_(timeStr)}</td>` +
       `</tr>`;
   }
   html += '</tbody></table>';
   body.innerHTML = html;
+
+  // Wire header clicks
+  body.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => setReservationsSort(th.getAttribute('data-sort')));
+  });
 }
 
 function escapeHtml_(s) {
