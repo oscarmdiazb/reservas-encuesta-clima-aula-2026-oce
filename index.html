@@ -1131,6 +1131,67 @@
     font-weight: 700;
   }
 
+  /* ----- School search (autocomplete) ----- */
+  .search-wrap { position: relative; }
+  .search-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    font-size: 15px; pointer-events: none; opacity: 0.6;
+  }
+  #schoolSearch {
+    width: 100%;
+    padding: 11px 38px 11px 38px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 15px;
+    background: var(--card);
+    color: var(--text);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  #schoolSearch:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.12);
+  }
+  .search-clear {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    width: 26px; height: 26px; border: 0; border-radius: 50%;
+    background: var(--bg); color: var(--muted); font-size: 18px; line-height: 1;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .search-clear:hover { background: var(--border); color: var(--text); }
+  .search-results {
+    position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    max-height: 320px; overflow-y: auto;
+    z-index: 50;
+  }
+  .search-results[hidden] { display: none; }
+  .search-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+  }
+  .search-item:last-child { border-bottom: 0; }
+  .search-item:hover, .search-item.active { background: #eef4fa; }
+  .search-item-name { font-weight: 800; font-size: 14px; color: var(--text); line-height: 1.25; }
+  .search-item-meta { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+  .search-item mark { background: #fde68a; color: inherit; padding: 0 1px; border-radius: 2px; }
+  .search-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; }
+
+  .search-divider {
+    display: flex; align-items: center; text-align: center;
+    color: var(--muted); font-size: 12px; font-weight: 700;
+    margin: 14px 0 4px; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .search-divider::before, .search-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .search-divider span { padding: 0 12px; }
+
   /* ----- New step-card flow ----- */
   .step-card {
     background: var(--card);
@@ -1501,6 +1562,20 @@
       <div class="step-num">1</div>
       <h2>Identifica tu aula</h2>
     </div>
+
+    <div class="form-row search-row">
+      <label for="schoolSearch">Busca tu colegio por nombre</label>
+      <div class="search-wrap">
+        <span class="search-icon" aria-hidden="true">🔍</span>
+        <input type="text" id="schoolSearch" autocomplete="off"
+               placeholder="Escribe el nombre del colegio…" />
+        <button type="button" class="search-clear" id="schoolSearchClear" aria-label="Limpiar" hidden>×</button>
+        <div class="search-results" id="schoolSearchResults" hidden></div>
+      </div>
+    </div>
+
+    <div class="search-divider"><span>o busca por localidad</span></div>
+
     <div class="form-row">
       <label for="localidadSelect">Localidad</label>
       <select id="localidadSelect" required>
@@ -2573,6 +2648,103 @@ function getSelectedColegio() {
   return { localidad: loc, ...list[idx] };
 }
 
+// ---- School search (autocomplete across all localidades) ----
+function stripAccents_(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+function normSearch_(s) {
+  return stripAccents_(String(s || '')).toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+let _schoolIndex = null;
+function buildSchoolIndex() {
+  if (_schoolIndex) return _schoolIndex;
+  const arr = [];
+  for (const loc of Object.keys(SCHOOLS_BY_LOCALIDAD)) {
+    (SCHOOLS_BY_LOCALIDAD[loc] || []).forEach((entry, idx) => {
+      const name = shortColegio(entry.colegio || '');
+      arr.push({
+        loc, idx,
+        colegio: entry.colegio || '',
+        name,
+        jornada: entry.jornada || '',
+        clase: entry.clase || '',
+        // searchable blob: name + full colegio + localidad + jornada + clase
+        norm: normSearch_(`${name} ${entry.colegio} ${loc} ${entry.jornada} ${entry.clase}`)
+      });
+    });
+  }
+  _schoolIndex = arr;
+  return arr;
+}
+
+// Highlights the matched substring(s) in a display string.
+function highlightMatch_(text, q) {
+  const nText = normSearch_(text);
+  const nq = normSearch_(q);
+  const i = nText.indexOf(nq);
+  if (i < 0 || !nq) return escapeHtml_(text);
+  // Map normalized index back to original (accents don't change length here for es)
+  return escapeHtml_(text.slice(0, i)) + '<mark>' +
+         escapeHtml_(text.slice(i, i + nq.length)) + '</mark>' +
+         escapeHtml_(text.slice(i + nq.length));
+}
+
+let _searchActiveIdx = -1;
+let _searchMatches = [];
+
+function runSchoolSearch(q) {
+  const resultsEl = document.getElementById('schoolSearchResults');
+  const clearBtn = document.getElementById('schoolSearchClear');
+  clearBtn.hidden = !q;
+  const nq = normSearch_(q);
+  if (nq.length < 2) { resultsEl.hidden = true; resultsEl.innerHTML = ''; _searchMatches = []; return; }
+
+  const idx = buildSchoolIndex();
+  const matches = idx.filter(e => e.norm.includes(nq)).slice(0, 12);
+  _searchMatches = matches;
+  _searchActiveIdx = -1;
+
+  if (!matches.length) {
+    resultsEl.innerHTML = '<div class="search-empty">Sin resultados. Prueba con otra parte del nombre.</div>';
+    resultsEl.hidden = false;
+    return;
+  }
+  resultsEl.innerHTML = matches.map((e, i) =>
+    `<div class="search-item" data-i="${i}" role="option">` +
+    `<div class="search-item-name">${highlightMatch_(e.name, q)}</div>` +
+    `<div class="search-item-meta">${escapeHtml_(titleCase(e.loc))} · ${escapeHtml_(titleCase(e.jornada))} · Aula ${escapeHtml_(e.clase)}</div>` +
+    `</div>`).join('');
+  resultsEl.hidden = false;
+  resultsEl.querySelectorAll('.search-item').forEach(el => {
+    el.addEventListener('click', () => pickSearchResult(+el.getAttribute('data-i')));
+  });
+}
+
+function pickSearchResult(i) {
+  const e = _searchMatches[i];
+  if (!e) return;
+  // Set the dropdowns to this aula and proceed.
+  document.getElementById('localidadSelect').value = e.loc;
+  onLocalidadChange();
+  document.getElementById('schoolSelect').value = String(e.idx);
+  // Reflect in the search box + close results
+  document.getElementById('schoolSearch').value = `${e.name} · ${titleCase(e.jornada)} · ${e.clase}`;
+  document.getElementById('schoolSearchResults').hidden = true;
+  document.getElementById('schoolSearchClear').hidden = false;
+  setupStep2ForSelectedAula();
+  // Scroll step 2 into view on mobile
+  const s2 = document.getElementById('step2Card');
+  if (s2 && !s2.hidden) setTimeout(() => s2.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+}
+
+function clearSchoolSearch() {
+  document.getElementById('schoolSearch').value = '';
+  document.getElementById('schoolSearchResults').hidden = true;
+  document.getElementById('schoolSearchClear').hidden = true;
+  _searchMatches = [];
+}
+
 // Scans the public bookingDetails map for an existing reservation for this
 // exact aula. Aula identity = sede DANE (14-digit) + jornada + clase — robust
 // against spelling drift in the colegio/sede free-text fields.
@@ -2676,6 +2848,7 @@ function closeConfirmModalAndReset() {
   document.getElementById('localidadSelect').value = '';
   document.getElementById('schoolSelect').innerHTML = '<option value="">Primero selecciona la localidad</option>';
   document.getElementById('schoolSelect').disabled = true;
+  if (typeof clearSchoolSearch === 'function') clearSchoolSearch();
   selectedSlot = null;
   showStep('identify');
   document.getElementById('step1Card').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3129,6 +3302,40 @@ document.addEventListener('DOMContentLoaded', () => {
     setupStep2ForSelectedAula();
   });
   document.getElementById('schoolSelect').addEventListener('change', setupStep2ForSelectedAula);
+
+  // --- School search ---
+  const searchInput = document.getElementById('schoolSearch');
+  searchInput.addEventListener('input', (e) => runSchoolSearch(e.target.value));
+  searchInput.addEventListener('focus', (e) => { if (e.target.value) runSchoolSearch(e.target.value); });
+  document.getElementById('schoolSearchClear').addEventListener('click', () => {
+    clearSchoolSearch(); searchInput.focus();
+  });
+  // Keyboard nav in results
+  searchInput.addEventListener('keydown', (e) => {
+    const resultsEl = document.getElementById('schoolSearchResults');
+    if (resultsEl.hidden || !_searchMatches.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      _searchActiveIdx += (e.key === 'ArrowDown' ? 1 : -1);
+      if (_searchActiveIdx < 0) _searchActiveIdx = _searchMatches.length - 1;
+      if (_searchActiveIdx >= _searchMatches.length) _searchActiveIdx = 0;
+      resultsEl.querySelectorAll('.search-item').forEach((el, i) => {
+        el.classList.toggle('active', i === _searchActiveIdx);
+        if (i === _searchActiveIdx) el.scrollIntoView({ block: 'nearest' });
+      });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      pickSearchResult(_searchActiveIdx >= 0 ? _searchActiveIdx : 0);
+    } else if (e.key === 'Escape') {
+      resultsEl.hidden = true;
+    }
+  });
+  // Close results when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-wrap')) {
+      document.getElementById('schoolSearchResults').hidden = true;
+    }
+  });
 
   // --- Step 2 sub-view toggles ---
   function openWeekDays() {
