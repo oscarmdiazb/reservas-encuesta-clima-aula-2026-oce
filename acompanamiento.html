@@ -84,13 +84,31 @@
 
   .col-colegio { font-weight: 700; }
   .col-aula { color: var(--muted); font-weight: 600; font-size: 12px; }
-  .fac-name { font-weight: 700; color: var(--text); }
-  .fac-none { color: var(--error); font-weight: 700; font-style: italic; }
-  .row-assign-btn {
-    background: transparent; border: 1px solid var(--border); border-radius: 6px;
-    padding: 4px 10px; font-family: inherit; font-weight: 700; font-size: 12px; color: var(--primary); cursor: pointer;
+
+  /* Inline editable facilitator input */
+  .fac-cell { position: relative; min-width: 180px; }
+  .fac-input {
+    width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px;
+    font-family: inherit; font-size: 13px; font-weight: 700; color: var(--text); background: var(--card);
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-  .row-assign-btn:hover { background: #eef4fa; border-color: var(--primary); }
+  .fac-input::placeholder { color: #c4362f; font-weight: 700; font-style: italic; opacity: 0.7; }
+  .fac-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(15,76,129,0.12); }
+  .fac-input.empty { border-color: #fca5a5; background: #fff5f5; }
+  .fac-input.saving { opacity: 0.6; }
+  .fac-saved {
+    position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+    color: var(--success); font-weight: 800; font-size: 14px; opacity: 0;
+    transition: opacity 0.2s; pointer-events: none;
+  }
+  .fac-saved.show { opacity: 1; }
+
+  /* Localidad filter */
+  .table-controls {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+  }
+  .table-controls label { font-weight: 700; font-size: 13px; color: var(--muted); }
+  .table-controls select { width: auto; min-width: 180px; padding: 8px 12px; }
 
   .toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(150%);
@@ -120,32 +138,27 @@
   <header>
     <div class="brand">OCE-SED · Encuesta de clima de aula</div>
     <h1>Acompañamiento de visitas</h1>
-    <p class="lead">Cada visita de la encuesta es acompañada por un facilitador/a de la OCE. Elige la visita y registra tu nombre. Las aulas que aún no confirman fecha aparecen marcadas como <b>Sin confirmar</b>.</p>
+    <p class="lead">Cada visita de la encuesta es acompañada por un facilitador/a de la OCE. Busca tu visita en la tabla y <b>escribe tu nombre</b> en la columna <b>Facilitador/a</b> (se guarda al salir del campo o al presionar Enter). Las aulas que aún no confirman fecha aparecen marcadas como <b>Sin confirmar</b>.</p>
   </header>
 
   <div id="configWarning" class="config-warning" style="display:none">
     ⚠️ La URL de Apps Script no está configurada. Edita <code>APPS_SCRIPT_URL</code> en <code>acompanamiento.html</code>.
   </div>
 
-  <!-- Assign form -->
-  <section class="card">
-    <h2>Asignar facilitador/a a una visita</h2>
-    <div class="form-row">
-      <label for="visitSelect">Visita</label>
-      <select id="visitSelect"><option value="">Cargando visitas…</option></select>
-    </div>
-    <div class="form-actions">
-      <div class="grow form-row" style="margin:0">
-        <label for="facInput">Nombre del facilitador/a</label>
-        <input type="text" id="facInput" placeholder="Escribe tu nombre" autocomplete="name" />
-      </div>
-      <button type="button" class="btn btn-primary" id="assignBtn">Asignar</button>
-    </div>
-  </section>
-
   <!-- Coverage table -->
   <section class="card">
-    <h2>Cobertura de visitas</h2>
+    <h2>Visitas y acompañamiento</h2>
+    <div class="table-controls">
+      <label for="locFilter">Filtrar por localidad:</label>
+      <select id="locFilter"><option value="">Todas las localidades</option></select>
+      <label for="facFilter" style="margin-left:8px">Mostrar:</label>
+      <select id="facFilter">
+        <option value="">Todas</option>
+        <option value="sinfac">Solo sin facilitador</option>
+        <option value="confac">Solo con facilitador</option>
+        <option value="sinconf">Solo sin confirmar</option>
+      </select>
+    </div>
     <div class="summary-bar" id="summaryBar">Cargando…</div>
     <div class="table-wrap" id="tableWrap">
       <div class="status"><div class="spinner"></div><div style="margin-top:12px">Cargando…</div></div>
@@ -167,6 +180,7 @@ const MONTH_ABBR = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct",
 let bookingDetails = {}, assignments = {}, facilitadores = {};
 let visits = [];                    // enriched roster
 let sortState = { col: 'fecha', dir: 1 };
+let filterLoc = '', filterFac = '';
 
 function isConfigured() { return APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('PASTE'); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
@@ -234,29 +248,17 @@ function buildVisits(){
 
 function refreshUI(){
   visits = buildVisits();
-  populateVisitDropdown();
+  populateLocFilter();
   renderTable();
 }
 
-function populateVisitDropdown(){
-  const sel = document.getElementById('visitSelect');
-  const sorted = visits.slice().sort((a,b)=>{
-    // confirmed first (by date+time), then unconfirmed (by assigned date)
-    if(a.confirmed !== b.confirmed) return a.confirmed ? -1 : 1;
-    const fa=a.fechaISO||'9999', fb=b.fechaISO||'9999';
-    if(fa!==fb) return fa<fb?-1:1;
-    return (a.colegio||'').localeCompare(b.colegio||'');
-  });
-  let html = '<option value="">Selecciona la visita…</option>';
-  for(const v of sorted){
-    const prefix = v.confirmed ? '✓' : '○';
-    const when = v.confirmed
-      ? `${shortDate(v.fechaISO)} ${formatTime(v.hour,v.minute).replace(' ','')}`
-      : (v.fechaISO ? `sin confirmar (prop. ${shortDate(v.fechaISO)})` : 'sin confirmar');
-    const facTag = v.facilitador ? ` — ${v.facilitador}` : '';
-    html += `<option value="${esc(v.key)}">${prefix} ${esc(when)} · ${esc(shortColegio(v.colegio))} ${esc(v.clase)}${esc(facTag)}</option>`;
-  }
-  sel.innerHTML = html;
+function populateLocFilter(){
+  const sel = document.getElementById('locFilter');
+  const prev = sel.value;
+  const locs = Array.from(new Set(visits.map(v=>v.localidad))).sort();
+  sel.innerHTML = '<option value="">Todas las localidades</option>' +
+    locs.map(l=>`<option value="${esc(l)}">${esc(titleCase(l))}</option>`).join('');
+  sel.value = prev;   // preserve selection across refresh
 }
 
 const SORTKEYS = {
@@ -272,20 +274,37 @@ function setSort(col){
   renderTable();
 }
 
+function visibleVisits(){
+  return visits.filter(v=>{
+    if(filterLoc && v.localidad !== filterLoc) return false;
+    if(filterFac === 'sinfac' && v.facilitador) return false;
+    if(filterFac === 'confac' && !v.facilitador) return false;
+    if(filterFac === 'sinconf' && v.confirmed) return false;
+    return true;
+  });
+}
+
 function renderTable(){
   const wrap = document.getElementById('tableWrap');
-  const total = visits.length;
-  const conf = visits.filter(v=>v.confirmed).length;
-  const withFac = visits.filter(v=>v.facilitador).length;
+  const shown = visibleVisits();
+  const total = shown.length;
+  const conf = shown.filter(v=>v.confirmed).length;
+  const withFac = shown.filter(v=>v.facilitador).length;
   const sinFac = total - withFac;
   document.getElementById('summaryBar').innerHTML =
-    `<b>${total}</b> aulas · <b>${conf}</b> confirmadas · <b>${withFac}</b> con facilitador · ` +
-    `<span style="color:#dc2626"><b>${sinFac}</b> sin facilitador</span>`;
+    `<b>${total}</b> aula(s) mostradas · <b>${conf}</b> confirmadas · <b>${withFac}</b> con facilitador · ` +
+    `<span style="color:#dc2626"><b>${sinFac}</b> sin facilitador</span>` +
+    (filterLoc ? ` · <b>${esc(titleCase(filterLoc))}</b>` : '');
 
-  const rows = visits.slice();
+  const rows = shown.slice();
   const kf = SORTKEYS[sortState.col] || SORTKEYS.fecha, dir = sortState.dir;
   rows.sort((a,b)=>{ const ka=kf(a),kb=kf(b); if(ka<kb)return -1*dir; if(ka>kb)return 1*dir;
     return (a.colegio||'').localeCompare(b.colegio||''); });
+
+  if(!rows.length){
+    wrap.innerHTML = '<div class="status">No hay visitas que coincidan con el filtro.</div>';
+    return;
+  }
 
   const cols = [
     {id:'estado', label:'Estado'},
@@ -294,12 +313,11 @@ function renderTable(){
     {id:'colegio', label:'Colegio · Aula'},
     {id:'localidad', label:'Localidad'},
     {id:'facilitador', label:'Facilitador/a'},
-    {id:null, label:''},
   ];
   const arrow = id => sortState.col===id ? (sortState.dir===1?' ▲':' ▼') : '';
-  let html = '<table><thead><tr>' + cols.map(c=> c.id
-    ? `<th class="sortable" data-sort="${c.id}">${c.label}${arrow(c.id)}</th>`
-    : `<th></th>`).join('') + '</tr></thead><tbody>';
+  let html = '<table><thead><tr>' + cols.map(c=>
+    `<th class="sortable" data-sort="${c.id}">${c.label}${arrow(c.id)}</th>`).join('') +
+    '</tr></thead><tbody>';
 
   for(const v of rows){
     const estado = v.confirmed
@@ -307,21 +325,20 @@ function renderTable(){
       : '<span class="badge badge-pend">○ Sin confirmar</span>';
     const fecha = v.fechaISO ? esc(shortDate(v.fechaISO)) : '<span style="color:#9ca3af">—</span>';
     const hora = v.confirmed ? esc(`${formatTime(v.hour,v.minute)} – ${endTime(v.hour,v.minute)}`) : '<span style="color:#9ca3af">—</span>';
-    const facCell = v.facilitador
-      ? `<span class="fac-name">${esc(v.facilitador)}</span>`
-      : `<span class="fac-none">Sin asignar</span>`;
     const aulaLabel = `${esc(titleCase(v.jornada))} · Aula ${esc(v.clase)}`;
     const trCls = [];
     if(!v.confirmed) trCls.push('unconfirmed');
-    if(!v.facilitador) trCls.push('no-fac');
-    html += `<tr class="${trCls.join(' ')}">`+
+    html += `<tr>`+
       `<td>${estado}</td>`+
-      `<td>${fecha}</td>`+
+      `<td style="white-space:nowrap">${fecha}</td>`+
       `<td style="white-space:nowrap">${hora}</td>`+
       `<td><div class="col-colegio">${esc(shortColegio(v.colegio))}</div><div class="col-aula">${aulaLabel}</div></td>`+
       `<td>${esc(titleCase(v.localidad))}</td>`+
-      `<td class="fac-cell">${facCell}</td>`+
-      `<td><button type="button" class="row-assign-btn" data-key="${esc(v.key)}">${v.facilitador?'Cambiar':'Asignar'}</button></td>`+
+      `<td class="fac-cell">`+
+        `<input type="text" class="fac-input${v.facilitador?'':' empty'}" data-key="${esc(v.key)}" `+
+          `value="${esc(v.facilitador)}" placeholder="Escribe tu nombre…" autocomplete="off" />`+
+        `<span class="fac-saved">✓</span>`+
+      `</td>`+
       `</tr>`;
   }
   html += '</tbody></table>';
@@ -330,47 +347,53 @@ function renderTable(){
   wrap.querySelectorAll('th.sortable').forEach(th=>{
     th.addEventListener('click',()=>setSort(th.getAttribute('data-sort')));
   });
-  wrap.querySelectorAll('.row-assign-btn').forEach(b=>{
-    b.addEventListener('click',()=>{
-      const key=b.getAttribute('data-key');
-      document.getElementById('visitSelect').value = key;
-      const v = visits.find(x=>x.key===key);
-      document.getElementById('facInput').value = v && v.facilitador ? v.facilitador : '';
-      document.getElementById('facInput').focus();
-      document.querySelector('.card').scrollIntoView({behavior:'smooth', block:'start'});
-    });
+  wrap.querySelectorAll('.fac-input').forEach(inp=>{
+    inp.addEventListener('change', ()=>saveRowFacilitador(inp));   // fires on blur if changed
+    inp.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } });
   });
 }
 
-async function assign(){
-  const key = document.getElementById('visitSelect').value;
-  const fac = document.getElementById('facInput').value.trim();
-  if(!key) return showToast('Selecciona una visita.', 'error');
-  if(!fac) return showToast('Escribe el nombre del facilitador.', 'error');
-  if(!isConfigured()) return showToast('URL de Apps Script no configurada.', 'error');
+async function saveRowFacilitador(inp){
+  const key = inp.getAttribute('data-key');
+  const val = inp.value.trim();
   const v = visits.find(x=>x.key===key);
-  if(!v) return showToast('Visita no encontrada.', 'error');
+  if(!v) return;
+  if(val === (v.facilitador||'')) return;   // no change
+  if(!isConfigured()) return showToast('URL de Apps Script no configurada.', 'error');
 
-  const btn = document.getElementById('assignBtn');
-  btn.disabled = true; btn.textContent = 'Guardando…';
+  inp.classList.add('saving'); inp.disabled = true;
   try{
     const res = await postFacilitador({
       action:'set_facilitador', dane:v.dane, jornada:v.jornada, clase:v.clase,
-      colegio:v.colegio, facilitador: fac
+      colegio:v.colegio, facilitador: val
     });
     if(res && res.ok){
-      showToast(`Asignado: ${fac} → ${shortColegio(v.colegio)} ${v.clase}`, 'success');
-      document.getElementById('facInput').value='';
-      document.getElementById('visitSelect').value='';
-      await refresh();
+      v.facilitador = val;                 // update local state
+      facilitadores[key] = val;
+      inp.classList.toggle('empty', !val);
+      const saved = inp.parentElement.querySelector('.fac-saved');
+      if(saved){ saved.classList.add('show'); setTimeout(()=>saved.classList.remove('show'), 1500); }
+      // Update the summary counts without a full re-render (keeps focus flow)
+      renderSummaryOnly();
     } else {
       showToast('No se pudo guardar ('+(res&&res.error||'error')+').', 'error');
     }
   }catch(err){
     showToast('Error de conexión: '+err.message, 'error');
   }finally{
-    btn.disabled=false; btn.textContent='Asignar';
+    inp.classList.remove('saving'); inp.disabled = false;
   }
+}
+
+function renderSummaryOnly(){
+  const shown = visibleVisits();
+  const total = shown.length;
+  const conf = shown.filter(v=>v.confirmed).length;
+  const withFac = shown.filter(v=>v.facilitador).length;
+  document.getElementById('summaryBar').innerHTML =
+    `<b>${total}</b> aula(s) mostradas · <b>${conf}</b> confirmadas · <b>${withFac}</b> con facilitador · ` +
+    `<span style="color:#dc2626"><b>${total-withFac}</b> sin facilitador</span>` +
+    (filterLoc ? ` · <b>${esc(titleCase(filterLoc))}</b>` : '');
 }
 
 async function refresh(){
@@ -389,7 +412,8 @@ async function refresh(){
 
 document.addEventListener('DOMContentLoaded', ()=>{
   if(!isConfigured()) document.getElementById('configWarning').style.display='block';
-  document.getElementById('assignBtn').addEventListener('click', assign);
+  document.getElementById('locFilter').addEventListener('change', (e)=>{ filterLoc = e.target.value; renderTable(); });
+  document.getElementById('facFilter').addEventListener('change', (e)=>{ filterFac = e.target.value; renderTable(); });
   refresh();
 });
 </script>
