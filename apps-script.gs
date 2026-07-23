@@ -41,9 +41,10 @@ function doGet(e) {
     const data = getCurrentData_();
     return jsonOut_({
       ok: true,
-      bookings: data.counts,        // { "YYYY-MM-DD HH:mm": n }   (back-compat)
-      details: data.details,        // { "YYYY-MM-DD HH:mm": [ { colegio, jornada, clase, localidad, sede } ] }
-      assignments: getAssignments_(),  // { "Colegio|Sede|Jornada|Clase": "YYYY-MM-DD" }
+      bookings: data.counts,          // { "YYYY-MM-DD HH:mm": n }   (back-compat)
+      details: data.details,          // { "YYYY-MM-DD HH:mm": [ { colegio, jornada, clase, localidad, sede, dane, ts } ] }
+      assignments: getAssignments_(), // { "DANE|Jornada|Clase": "YYYY-MM-DD" }
+      facilitadores: getFacilitadores_(), // { "DANE|Jornada|Clase": "Nombre" }
       capacity: CAPACITY
     });
   } catch (err) {
@@ -66,6 +67,11 @@ function doPost(e) {
       body = JSON.parse(e.postData.contents);
     } catch (parseErr) {
       return jsonOut_({ ok: false, error: 'invalid_json' });
+    }
+
+    // Branch: facilitator assignment (from acompanamiento.html) vs booking.
+    if (body && body.action === 'set_facilitador') {
+      return setFacilitador_(body);
     }
 
     const slot      = (body && body.slot)      ? String(body.slot).trim()      : '';
@@ -300,6 +306,74 @@ function getAssignments_() {
   return out;
 }
 
+// ---------- Facilitadores (OCE) ----------
+// A separate tab keyed by aula (DANE|Jornada|Clase) so a facilitator can be
+// assigned to any aula — reserved or not. Schema (row 1 = headers):
+//   A: DANE   B: Jornada   C: Clase   D: Colegio   E: Facilitador   F: updated_at
+const FACILITADORES_SHEET_NAME = 'Facilitadores';
+const FACILITADORES_HEADER = ['DANE', 'Jornada', 'Clase', 'Colegio', 'Facilitador', 'updated_at'];
+
+function getFacilitadores_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(FACILITADORES_SHEET_NAME);
+  if (!sheet || sheet.getLastRow() <= 1) return {};
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+  const out = {};
+  for (let i = 0; i < values.length; i++) {
+    const dane = String(values[i][0] || '').trim().replace(/\.0+$/, '');
+    const jor  = String(values[i][1] || '').trim().toUpperCase();
+    const cl   = String(values[i][2] || '').trim();
+    const fac  = String(values[i][4] || '').trim();
+    if (!dane || !jor || !cl) continue;
+    out[dane + '|' + jor + '|' + cl] = fac;
+  }
+  return out;
+}
+
+// Upsert a facilitator for one aula. Called from doPost when action=set_facilitador.
+function setFacilitador_(body) {
+  const dane = String(body.dane || '').trim().replace(/\.0+$/, '');
+  const jor  = String(body.jornada || '').trim().toUpperCase();
+  const cl   = String(body.clase || '').trim();
+  const fac  = String(body.facilitador || '').trim();
+  const colegio = String(body.colegio || '').trim();
+  if (!dane || !jor || !cl) return jsonOut_({ ok: false, error: 'missing_aula' });
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(FACILITADORES_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(FACILITADORES_SHEET_NAME);
+    sheet.getRange(1, 1, 1, FACILITADORES_HEADER.length)
+      .setValues([FACILITADORES_HEADER]).setFontWeight('bold');
+    sheet.getRange('A:A').setNumberFormat('@');
+    sheet.getRange('C:C').setNumberFormat('@');
+  }
+
+  // Find existing row for this aula key
+  const lastRow = sheet.getLastRow();
+  let targetRow = -1;
+  if (lastRow > 1) {
+    const keys = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+    for (let i = 0; i < keys.length; i++) {
+      const k = String(keys[i][0] || '').trim().replace(/\.0+$/, '') + '|' +
+                String(keys[i][1] || '').trim().toUpperCase() + '|' +
+                String(keys[i][2] || '').trim();
+      if (k === (dane + '|' + jor + '|' + cl)) { targetRow = i + 2; break; }
+    }
+  }
+
+  const rowVals = [dane, jor, cl, colegio, fac, new Date()];
+  if (targetRow > 0) {
+    sheet.getRange(targetRow, 1, 1, rowVals.length).setValues([rowVals]);
+  } else {
+    const nr = sheet.getLastRow() + 1;
+    sheet.getRange(nr, 1).setNumberFormat('@');
+    sheet.getRange(nr, 3).setNumberFormat('@');
+    sheet.getRange(nr, 1, 1, rowVals.length).setValues([rowVals]);
+  }
+  return jsonOut_({ ok: true, facilitador: fac });
+}
+
 // ---------- Conflict-aware capacity ----------
 // A booking at slot S occupies 4 half-hour marks (S, S+30, S+60, S+90) because
 // each session lasts 2 hours. To start a session at slot T, no half-hour during
@@ -411,7 +485,19 @@ function setup() {
   // Visually mark the admin columns with a subtle background
   asignaciones.getRange('F1:H1').setBackground('#fef3c7');
 
-  Logger.log('Setup complete. Sheets "%s" and "%s" are ready.', SHEET_NAME, ASSIGNMENTS_SHEET_NAME);
+  // Facilitadores tab (OCE accompaniment). Keyed by aula (DANE|Jornada|Clase).
+  let facs = ss.getSheetByName(FACILITADORES_SHEET_NAME);
+  if (!facs) facs = ss.insertSheet(FACILITADORES_SHEET_NAME);
+  facs.getRange(1, 1, 1, FACILITADORES_HEADER.length)
+    .setValues([FACILITADORES_HEADER]).setFontWeight('bold').setBackground('#f3f4f6');
+  facs.setFrozenRows(1);
+  facs.getRange('A:A').setNumberFormat('@'); // DANE plain text
+  facs.getRange('C:C').setNumberFormat('@'); // Clase plain text
+  facs.setColumnWidth(1, 140); facs.setColumnWidth(2, 90); facs.setColumnWidth(3, 70);
+  facs.setColumnWidth(4, 280); facs.setColumnWidth(5, 200); facs.setColumnWidth(6, 160);
+
+  Logger.log('Setup complete. Sheets "%s", "%s", "%s" ready.',
+             SHEET_NAME, ASSIGNMENTS_SHEET_NAME, FACILITADORES_SHEET_NAME);
 }
 
 // =====================================================================

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OCE-SED · Acompañamiento de visitas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #f7f7f5; --card: #ffffff; --text: #1f2937; --muted: #6b7280;
+    --border: #e5e7eb; --primary: #0f4c81; --primary-hover: #0c3d68;
+    --success: #059669; --error: #dc2626;
+    --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5; font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 20px 60px; }
+  .brand { font-size: 12px; font-weight: 800; letter-spacing: 0.12em; color: var(--primary); text-transform: uppercase; }
+  h1 { font-size: 26px; font-weight: 800; margin: 8px 0 10px; letter-spacing: -0.01em; }
+  .lead { color: var(--muted); font-size: 15px; max-width: 720px; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow); margin: 20px 0; padding: 20px 22px;
+  }
+  .card h2 { font-size: 17px; font-weight: 800; margin-bottom: 14px; }
+
+  .form-row { margin-bottom: 14px; }
+  .form-row label { display: block; font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+  select, input[type="text"] {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+    border-radius: 8px; font-family: inherit; font-size: 14px; background: var(--card); color: var(--text);
+  }
+  select:focus, input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(15,76,129,0.12); }
+
+  .btn {
+    padding: 10px 18px; border: 1px solid transparent; border-radius: 8px; cursor: pointer;
+    font-family: inherit; font-weight: 700; font-size: 14px; transition: all 0.15s;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn-primary:disabled { opacity: 0.6; cursor: wait; }
+
+  .form-actions { display: flex; gap: 10px; align-items: flex-end; }
+  .form-actions .grow { flex: 1; }
+
+  .status { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 14px; }
+  .spinner {
+    display: inline-block; width: 30px; height: 30px; border: 3px solid var(--border);
+    border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .summary-bar { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 12px; }
+  .summary-bar b { color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    position: sticky; top: 0; background: var(--bg); border-bottom: 1px solid var(--border);
+    text-align: left; padding: 10px 12px; font-weight: 800; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--muted); white-space: nowrap; z-index: 1;
+  }
+  thead th.sortable { cursor: pointer; user-select: none; }
+  thead th.sortable:hover { background: #e5edf5; color: var(--primary); }
+  tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.unconfirmed { background: #f9fafb; }
+  tbody tr.no-fac td.fac-cell { color: var(--error); font-weight: 700; }
+
+  .table-wrap { max-height: 620px; overflow: auto; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800;
+    white-space: nowrap;
+  }
+  .badge-ok { background: #d1fae5; color: #065f46; }
+  .badge-pend { background: #fef3c7; color: #92400e; }
+
+  .col-colegio { font-weight: 700; }
+  .col-aula { color: var(--muted); font-weight: 600; font-size: 12px; }
+  .fac-name { font-weight: 700; color: var(--text); }
+  .fac-none { color: var(--error); font-weight: 700; font-style: italic; }
+  .row-assign-btn {
+    background: transparent; border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 10px; font-family: inherit; font-weight: 700; font-size: 12px; color: var(--primary); cursor: pointer;
+  }
+  .row-assign-btn:hover { background: #eef4fa; border-color: var(--primary); }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(150%);
+    background: var(--text); color: #fff; padding: 14px 22px; border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2); font-weight: 700; font-size: 14px;
+    transition: transform 0.3s ease; z-index: 200; max-width: 90vw; text-align: center;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--error); }
+  .toast.success { background: var(--success); }
+
+  .config-warning {
+    background: #fef3c7; border: 1px solid #fcd34d; color: #92400e;
+    padding: 12px 16px; border-radius: 10px; margin: 16px 0; font-size: 13px; font-weight: 600;
+  }
+
+  @media (max-width: 640px) {
+    .container { padding: 20px 12px 40px; }
+    h1 { font-size: 21px; }
+    .form-actions { flex-direction: column; align-items: stretch; }
+    thead th, tbody td { padding: 8px 8px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="brand">OCE-SED · Encuesta de clima de aula</div>
+    <h1>Acompañamiento de visitas</h1>
+    <p class="lead">Cada visita de la encuesta es acompañada por un facilitador/a de la OCE. Elige la visita y registra tu nombre. Las aulas que aún no confirman fecha aparecen marcadas como <b>Sin confirmar</b>.</p>
+  </header>
+
+  <div id="configWarning" class="config-warning" style="display:none">
+    ⚠️ La URL de Apps Script no está configurada. Edita <code>APPS_SCRIPT_URL</code> en <code>acompanamiento.html</code>.
+  </div>
+
+  <!-- Assign form -->
+  <section class="card">
+    <h2>Asignar facilitador/a a una visita</h2>
+    <div class="form-row">
+      <label for="visitSelect">Visita</label>
+      <select id="visitSelect"><option value="">Cargando visitas…</option></select>
+    </div>
+    <div class="form-actions">
+      <div class="grow form-row" style="margin:0">
+        <label for="facInput">Nombre del facilitador/a</label>
+        <input type="text" id="facInput" placeholder="Escribe tu nombre" autocomplete="name" />
+      </div>
+      <button type="button" class="btn btn-primary" id="assignBtn">Asignar</button>
+    </div>
+  </section>
+
+  <!-- Coverage table -->
+  <section class="card">
+    <h2>Cobertura de visitas</h2>
+    <div class="summary-bar" id="summaryBar">Cargando…</div>
+    <div class="table-wrap" id="tableWrap">
+      <div class="status"><div class="spinner"></div><div style="margin-top:12px">Cargando…</div></div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="schools.js"></script>
+<script>
+// Same deployment URL as the reservation site.
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwl9OlDdlrBhLIS4AC4XI0fYErceS5EyRQ0QzV3Hho-8ZX5lMlleP-CcxnWeIu24vj-Ow/exec";
+
+const DAY_NAMES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+const MONTH_NAMES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const MONTH_ABBR = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+let bookingDetails = {}, assignments = {}, facilitadores = {};
+let visits = [];                    // enriched roster
+let sortState = { col: 'fecha', dir: 1 };
+
+function isConfigured() { return APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('PASTE'); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function titleCase(s){ if(!s) return s; return s.toLowerCase().replace(/(^|\s|-|\/)([a-záéíóúüñ])/g,(_,a,b)=>a+b.toUpperCase()); }
+function shortColegio(n){ return String(n||'').replace(/^COLEGIO\s+/i,'').replace(/\s*\(IED\)\s*$/i,'').trim(); }
+function aulaKey(dane,jor,clase){ return [String(dane||'').trim(),String(jor||'').trim().toUpperCase(),String(clase||'').trim()].join('|'); }
+function formatTime(h,mi){ const h12=((h+11)%12)+1; return `${h12}:${String(mi).padStart(2,'0')} ${h<12?'a.m.':'p.m.'}`; }
+function endTime(h,mi){ const t=h*60+mi+120; return formatTime(Math.floor(t/60), t%60); }
+function shortDate(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(iso||''); if(!m) return ''; const d=new Date(+m[1],+m[2]-1,+m[3]); return `${DAY_NAMES[d.getDay()].slice(0,3)}. ${d.getDate()} ${MONTH_ABBR[d.getMonth()]}`; }
+function fullDate(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(iso||''); if(!m) return ''; const d=new Date(+m[1],+m[2]-1,+m[3]); return `${DAY_NAMES[d.getDay()]} ${d.getDate()} de ${MONTH_NAMES[d.getMonth()]}`; }
+
+function showToast(msg, type=''){
+  const t=document.getElementById('toast'); t.textContent=msg; t.className=`toast show ${type}`;
+  clearTimeout(showToast._t); showToast._t=setTimeout(()=>t.classList.remove('show'),5000);
+}
+
+async function fetchData(){
+  const res = await fetch(APPS_SCRIPT_URL, { method:'GET', mode:'cors', redirect:'follow' });
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  return res.json();
+}
+async function postFacilitador(payload){
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method:'POST', mode:'cors', redirect:'follow',
+    headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload)
+  });
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  return res.json();
+}
+
+// Build reservation lookup: aulaKey -> { slotK, hour, minute }
+function buildReservedMap(){
+  const map = {};
+  for(const slotK of Object.keys(bookingDetails)){
+    const m=/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(slotK);
+    for(const r of (bookingDetails[slotK]||[])){
+      map[aulaKey(r.dane,r.jornada,r.clase)] = { slotK, hour: m?+m[4]:0, minute: m?+m[5]:0 };
+    }
+  }
+  return map;
+}
+
+// Flatten SCHOOLS_BY_LOCALIDAD into the enriched visit roster.
+function buildVisits(){
+  const reserved = buildReservedMap();
+  const out = [];
+  for(const loc of Object.keys(SCHOOLS_BY_LOCALIDAD)){
+    for(const a of SCHOOLS_BY_LOCALIDAD[loc]){
+      const key = aulaKey(a.dane, a.jornada, a.clase);
+      const res = reserved[key] || null;
+      const assignedISO = assignments[key] || '';
+      out.push({
+        key, localidad: loc, colegio: a.colegio, jornada: a.jornada, clase: a.clase,
+        dane: a.dane,
+        confirmed: !!res,
+        // effective date: reserved slot date if confirmed, else assigned date
+        fechaISO: res ? res.slotK.slice(0,10) : assignedISO,
+        hour: res ? res.hour : null, minute: res ? res.minute : null,
+        facilitador: facilitadores[key] || ''
+      });
+    }
+  }
+  return out;
+}
+
+function refreshUI(){
+  visits = buildVisits();
+  populateVisitDropdown();
+  renderTable();
+}
+
+function populateVisitDropdown(){
+  const sel = document.getElementById('visitSelect');
+  const sorted = visits.slice().sort((a,b)=>{
+    // confirmed first (by date+time), then unconfirmed (by assigned date)
+    if(a.confirmed !== b.confirmed) return a.confirmed ? -1 : 1;
+    const fa=a.fechaISO||'9999', fb=b.fechaISO||'9999';
+    if(fa!==fb) return fa<fb?-1:1;
+    return (a.colegio||'').localeCompare(b.colegio||'');
+  });
+  let html = '<option value="">Selecciona la visita…</option>';
+  for(const v of sorted){
+    const prefix = v.confirmed ? '✓' : '○';
+    const when = v.confirmed
+      ? `${shortDate(v.fechaISO)} ${formatTime(v.hour,v.minute).replace(' ','')}`
+      : (v.fechaISO ? `sin confirmar (prop. ${shortDate(v.fechaISO)})` : 'sin confirmar');
+    const facTag = v.facilitador ? ` — ${v.facilitador}` : '';
+    html += `<option value="${esc(v.key)}">${prefix} ${esc(when)} · ${esc(shortColegio(v.colegio))} ${esc(v.clase)}${esc(facTag)}</option>`;
+  }
+  sel.innerHTML = html;
+}
+
+const SORTKEYS = {
+  estado:    v => v.confirmed ? 0 : 1,
+  fecha:     v => v.fechaISO || '9999-99-99',
+  hora:      v => v.confirmed ? (v.hour*60+v.minute) : 99999,
+  colegio:   v => (v.colegio||'').toLowerCase(),
+  localidad: v => (v.localidad||'').toLowerCase(),
+  facilitador: v => (v.facilitador||'~').toLowerCase(), // empty sorts last
+};
+function setSort(col){
+  if(sortState.col===col) sortState.dir*=-1; else sortState={col,dir:1};
+  renderTable();
+}
+
+function renderTable(){
+  const wrap = document.getElementById('tableWrap');
+  const total = visits.length;
+  const conf = visits.filter(v=>v.confirmed).length;
+  const withFac = visits.filter(v=>v.facilitador).length;
+  const sinFac = total - withFac;
+  document.getElementById('summaryBar').innerHTML =
+    `<b>${total}</b> aulas · <b>${conf}</b> confirmadas · <b>${withFac}</b> con facilitador · ` +
+    `<span style="color:#dc2626"><b>${sinFac}</b> sin facilitador</span>`;
+
+  const rows = visits.slice();
+  const kf = SORTKEYS[sortState.col] || SORTKEYS.fecha, dir = sortState.dir;
+  rows.sort((a,b)=>{ const ka=kf(a),kb=kf(b); if(ka<kb)return -1*dir; if(ka>kb)return 1*dir;
+    return (a.colegio||'').localeCompare(b.colegio||''); });
+
+  const cols = [
+    {id:'estado', label:'Estado'},
+    {id:'fecha', label:'Fecha'},
+    {id:'hora', label:'Hora'},
+    {id:'colegio', label:'Colegio · Aula'},
+    {id:'localidad', label:'Localidad'},
+    {id:'facilitador', label:'Facilitador/a'},
+    {id:null, label:''},
+  ];
+  const arrow = id => sortState.col===id ? (sortState.dir===1?' ▲':' ▼') : '';
+  let html = '<table><thead><tr>' + cols.map(c=> c.id
+    ? `<th class="sortable" data-sort="${c.id}">${c.label}${arrow(c.id)}</th>`
+    : `<th></th>`).join('') + '</tr></thead><tbody>';
+
+  for(const v of rows){
+    const estado = v.confirmed
+      ? '<span class="badge badge-ok">✓ Confirmada</span>'
+      : '<span class="badge badge-pend">○ Sin confirmar</span>';
+    const fecha = v.fechaISO ? esc(shortDate(v.fechaISO)) : '<span style="color:#9ca3af">—</span>';
+    const hora = v.confirmed ? esc(`${formatTime(v.hour,v.minute)} – ${endTime(v.hour,v.minute)}`) : '<span style="color:#9ca3af">—</span>';
+    const facCell = v.facilitador
+      ? `<span class="fac-name">${esc(v.facilitador)}</span>`
+      : `<span class="fac-none">Sin asignar</span>`;
+    const aulaLabel = `${esc(titleCase(v.jornada))} · Aula ${esc(v.clase)}`;
+    const trCls = [];
+    if(!v.confirmed) trCls.push('unconfirmed');
+    if(!v.facilitador) trCls.push('no-fac');
+    html += `<tr class="${trCls.join(' ')}">`+
+      `<td>${estado}</td>`+
+      `<td>${fecha}</td>`+
+      `<td style="white-space:nowrap">${hora}</td>`+
+      `<td><div class="col-colegio">${esc(shortColegio(v.colegio))}</div><div class="col-aula">${aulaLabel}</div></td>`+
+      `<td>${esc(titleCase(v.localidad))}</td>`+
+      `<td class="fac-cell">${facCell}</td>`+
+      `<td><button type="button" class="row-assign-btn" data-key="${esc(v.key)}">${v.facilitador?'Cambiar':'Asignar'}</button></td>`+
+      `</tr>`;
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('th.sortable').forEach(th=>{
+    th.addEventListener('click',()=>setSort(th.getAttribute('data-sort')));
+  });
+  wrap.querySelectorAll('.row-assign-btn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const key=b.getAttribute('data-key');
+      document.getElementById('visitSelect').value = key;
+      const v = visits.find(x=>x.key===key);
+      document.getElementById('facInput').value = v && v.facilitador ? v.facilitador : '';
+      document.getElementById('facInput').focus();
+      document.querySelector('.card').scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  });
+}
+
+async function assign(){
+  const key = document.getElementById('visitSelect').value;
+  const fac = document.getElementById('facInput').value.trim();
+  if(!key) return showToast('Selecciona una visita.', 'error');
+  if(!fac) return showToast('Escribe el nombre del facilitador.', 'error');
+  if(!isConfigured()) return showToast('URL de Apps Script no configurada.', 'error');
+  const v = visits.find(x=>x.key===key);
+  if(!v) return showToast('Visita no encontrada.', 'error');
+
+  const btn = document.getElementById('assignBtn');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try{
+    const res = await postFacilitador({
+      action:'set_facilitador', dane:v.dane, jornada:v.jornada, clase:v.clase,
+      colegio:v.colegio, facilitador: fac
+    });
+    if(res && res.ok){
+      showToast(`Asignado: ${fac} → ${shortColegio(v.colegio)} ${v.clase}`, 'success');
+      document.getElementById('facInput').value='';
+      document.getElementById('visitSelect').value='';
+      await refresh();
+    } else {
+      showToast('No se pudo guardar ('+(res&&res.error||'error')+').', 'error');
+    }
+  }catch(err){
+    showToast('Error de conexión: '+err.message, 'error');
+  }finally{
+    btn.disabled=false; btn.textContent='Asignar';
+  }
+}
+
+async function refresh(){
+  try{
+    const data = await fetchData();
+    bookingDetails = (data && data.details) || {};
+    assignments = (data && data.assignments) || {};
+    facilitadores = (data && data.facilitadores) || {};
+    refreshUI();
+  }catch(err){
+    document.getElementById('tableWrap').innerHTML =
+      `<div class="status" style="color:#dc2626">Error al cargar: ${esc(err.message)}<br><br>`+
+      `<button class="btn btn-primary" onclick="refresh()">Reintentar</button></div>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  if(!isConfigured()) document.getElementById('configWarning').style.display='block';
+  document.getElementById('assignBtn').addEventListener('click', assign);
+  refresh();
+});
+</script>
+</body>
+</html>
